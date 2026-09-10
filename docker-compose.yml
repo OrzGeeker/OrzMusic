@@ -43,6 +43,8 @@ services:
       resources:
         limits:
           memory: 512M
+    # 宿主/Docker 重启或容器崩溃后自愈；与一次性 cas-init 的 restart: "no" 形成对照。
+    restart: unless-stopped
     image: music-service:latest
     build:
       context: .
@@ -81,6 +83,8 @@ services:
       resources:
         limits:
           memory: 512M
+    # 宿主/Docker 重启或容器崩溃后自愈；与一次性 cas-init 的 restart: "no" 形成对照。
+    restart: unless-stopped
     image: postgres:16-alpine
     volumes:
       - db_data:/var/lib/postgresql/data
@@ -88,8 +92,10 @@ services:
       POSTGRES_USER: vapor_username
       POSTGRES_PASSWORD: vapor_password
       POSTGRES_DB: vapor_database
+    # 仅供宿主本机调试（native 部署 / psql）；绑定 127.0.0.1 而非 0.0.0.0。
+    # 生产叠加 docker-compose.production.yml 后该端口映射会被清空，不向宿主发布。
     ports:
-      - '5432:5432'
+      - '127.0.0.1:5432:5432'
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U vapor_username -d vapor_database"]
       interval: 5s

@@ -22,6 +22,7 @@ PASS=true
 
 red()    { printf '\033[31m%s\033[0m\n' "$1"; }
 green()  { printf '\033[32m%s\033[0m\n' "$1"; }
+yellow() { printf '\033[33m%s\033[0m\n' "$1"; }
 
 echo "=== Release Smoke Check ==="
 echo "Target: $SERVICE_URL"
@@ -41,6 +42,7 @@ if [ "$PASS" = true ]; then
     VERSION=$(echo "$HEALTH" | python3 -c "import sys,json; print(json.load(sys.stdin)['version'])" 2>/dev/null || echo "")
     DB=$(echo "$HEALTH" | python3 -c "import sys,json; print(json.load(sys.stdin)['database'])" 2>/dev/null || echo "")
     CAS=$(echo "$HEALTH" | python3 -c "import sys,json; print(json.load(sys.stdin)['cas'])" 2>/dev/null || echo "")
+    ADMIN_API=$(echo "$HEALTH" | python3 -c "import sys,json; print(json.load(sys.stdin).get('adminApi',''))" 2>/dev/null || echo "")
 
     if [ "$STATUS" = "ready" ]; then
         green "  [PASS] status=ready"
@@ -73,6 +75,17 @@ if [ "$PASS" = true ]; then
     else
         red "  [FAIL] cas=$CAS"
         PASS=false
+    fi
+
+    # 管理 API 是可选能力，但“调用方提供了令牌、服务端却报告 disabled”
+    # 说明令牌没有传进容器/进程，属于升级后静默缺失功能，必须失败。
+    if [ "$ADMIN_API" = "enabled" ]; then
+        green "  [PASS] adminApi=enabled"
+    elif [ -n "${ADMIN_API_TOKEN:-}" ]; then
+        red "  [FAIL] adminApi=$ADMIN_API but ADMIN_API_TOKEN was provided to the smoke check"
+        PASS=false
+    else
+        yellow "  [WARN] adminApi=$ADMIN_API (set ADMIN_API_TOKEN to enable scan/upload/delete)"
     fi
 fi
 echo ""

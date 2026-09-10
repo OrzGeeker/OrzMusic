@@ -228,6 +228,26 @@ else
     FAIL=$((FAIL + 1))
 fi
 
+# Test 9: compose 默认配置满足自愈与最小暴露（回归保护）
+echo "=== Test 9: compose restart policy and db exposure ==="
+COMPOSE_BASE_FILE="$TEST_DIR/docker-compose.yml"
+COMPOSE_PROD_FILE="$TEST_DIR/docker-compose.production.yml"
+
+restart_count=$(grep -c 'restart: unless-stopped' "$COMPOSE_BASE_FILE" || true)
+loopback_ok=$(grep -q "127.0.0.1:5432:5432" "$COMPOSE_BASE_FILE" && echo yes || echo no)
+host_publish=$(grep -q "'5432:5432'" "$COMPOSE_BASE_FILE" && echo yes || echo no)
+prod_restart=$(grep -c 'restart: unless-stopped' "$COMPOSE_PROD_FILE" || true)
+prod_reset=$(grep -q 'ports: !reset \[\]' "$COMPOSE_PROD_FILE" && echo yes || echo no)
+
+if [ "$restart_count" -ge 2 ] && [ "$loopback_ok" = yes ] && [ "$host_publish" = no ] \
+    && [ "$prod_restart" -ge 1 ] && [ "$prod_reset" = yes ]; then
+    green "PASS: app/db self-heal and db is loopback-only in production"
+    PASS=$((PASS + 1))
+else
+    red "FAIL: restart_count=$restart_count loopback=$loopback_ok host_publish=$host_publish prod_restart=$prod_restart prod_reset=$prod_reset"
+    FAIL=$((FAIL + 1))
+fi
+
 # 汇总
 echo ""
 echo "========= Results ========="

@@ -1,5 +1,20 @@
 # Changelog
 
+## [Unreleased]
+
+### 修复
+- 官方 Compose 默认给 `app` / `db` 容器加 `restart: unless-stopped`：宿主或 Docker 重启、
+  容器崩溃后自动恢复，不再出现“静默宕机 12 小时”；一次性 `cas-init` 仍为 `restart: "no"`（#2）。
+- `db` 不再向宿主全网卡发布 5432：`docker-compose.yml` 收敛为 `127.0.0.1:5432:5432`
+  （仅供本机调试），叠加 `docker-compose.production.yml` 后不向宿主发布端口（#4）。
+- `ADMIN_API_TOKEN` 缺失时服务启动打印明确 WARN（覆盖所有启动路径），`/api/health`
+  的 `adminApi` 字段保持不变；`release-smoke` 在调用方提供了令牌、服务端却报告
+  `adminApi: disabled` 时判定失败，避免管理 API 被静默关闭（#3）。
+
+### 文档
+- 部署文档与 README 明确 `ADMIN_API_TOKEN` 没有隐式回退来源、缺失时的告警位置与
+  健康检查字段，并补充容器自愈与数据库端口暴露口径。
+
 ## [0.0.7] — 2026-08-05
 
 ### 优化
