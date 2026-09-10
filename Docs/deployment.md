@@ -95,7 +95,13 @@ export IMAGE_REF=ghcr.io/orzgeeker/orzmusic@sha256:<digest>
 export ADMIN_API_TOKEN=<a-long-random-secret>
 ```
 
-`ADMIN_API_TOKEN` 在容器启动时读取，未配置时管理写接口会按设计关闭（返回 `503 admin_api_disabled`）。令牌不要提交到 Git、写入 URL 或日志。
+`ADMIN_API_TOKEN` 在容器启动时读取，且没有隐式回退来源（不会读取 shell 历史或任何本机遗留文件）。未配置时管理写接口按设计 fail-closed（返回 `503 admin_api_disabled`），同时：
+
+- 服务启动日志打印明确的 `WARN`（`ADMIN_API_TOKEN is not set: admin API disabled ...`），所有启动路径（`docker compose`、native、自定义脚本）都会出现；
+- `/api/health` 返回 `adminApi: "disabled"`，已配置时为 `"enabled"`；
+- `release-upgrade` 在缺失时直接中止，`release-smoke` 在调用方提供了令牌而服务端报告 `disabled` 时判定失败。
+
+它虽然不阻塞服务启动，但扫描、上传、删除等管理功能会全部不可用，生产环境应视为必填。令牌不要提交到 Git、写入 URL 或日志。
 
 > **项目名已由 Compose 文件兜底**：`docker-compose.yml` 钉死了 `name: orzmusic`（自 v0.0.6 起的部署包生效），无论部署包解压到哪个目录，所有版本都共享同一组 `db_data`/`cas_data` volume，升级能真正复用数据。早期版本（v0.0.5 及以前）没有这个兜底，必须手动 `export COMPOSE_PROJECT_NAME=orzmusic` 并在首次部署与每次升级中保持一致，否则按目录切换版本会新建空数据库。需要同时运行多套独立实例时，可用 `COMPOSE_PROJECT_NAME` 或 `--project-name` 覆盖（两者优先级都高于 `name` 字段）。
 
@@ -212,6 +218,9 @@ curl -fsS -X POST "http://127.0.0.1:8080/api/scan" \
 - 不要执行 `docker compose down -v`，避免删除数据库和 CAS volume。
 - 发布镜像优先使用 digest，而不是浮动标签。
 - 升级前必须确认数据库备份成功。
+- `ADMIN_API_TOKEN` 没有隐式回退来源，生产部署应显式配置；缺失时服务仍会 ready，但管理 API 关闭，只能靠启动 WARN 与 `/api/health` 的 `adminApi` 字段发现。
+- `app` / `db` 默认 `restart: unless-stopped`，宿主或 Docker 重启、容器崩溃后自动恢复；`cas-init` 等一次性服务保持 `restart: "no"`。
+- 生产叠加 `docker-compose.production.yml` 后不向宿主发布 PostgreSQL 端口；只使用 `docker-compose.yml` 时端口映射为 `127.0.0.1:5432:5432`，仅供本机调试。
 - 项目名由 `docker-compose.yml` 的 `name: orzmusic` 兜底（v0.0.6 起），按目录切换版本不会新建空数据库。早期版本部署包仍需手动保持 `COMPOSE_PROJECT_NAME` 一致。
 - 镜像同时发布 `linux/amd64` 与 `linux/arm64`（v0.0.6 起），Docker 按运行平台自动拉取对应变体，Apple Silicon 生产机无需额外配置。
 - 自定义 Compose 配置统一用 `COMPOSE_BASE`（空格分隔的 `-f` 参数）；不要用 docker compose 原生语义的 `COMPOSE_FILE`（冒号分隔路径列表），两种语义混用会让 `db-backup` 失败。

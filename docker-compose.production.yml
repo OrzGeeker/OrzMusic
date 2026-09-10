@@ -37,6 +37,8 @@ services:
   app:
     image: ${IMAGE_REF:?IMAGE_REF is required — use ghcr.io/<owner>/orzmusic:<version>}
     build: !reset null
+    # 生产环境同样要求宿主/Docker 重启后自愈。
+    restart: unless-stopped
     environment:
       <<: *shared_environment
       ADMIN_API_TOKEN: ${ADMIN_API_TOKEN:-}
@@ -64,3 +66,8 @@ services:
     command: ["migrate", "--yes"]
     deploy:
       replicas: 0
+
+  db:
+    # 生产环境不向宿主发布 PostgreSQL 端口；!reset 清空基础文件里的 127.0.0.1 调试映射。
+    # 注意：加了这个覆盖段后，必须同时使用 -f docker-compose.yml -f docker-compose.production.yml。
+    ports: !reset []

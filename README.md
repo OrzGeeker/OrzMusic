@@ -73,6 +73,7 @@ ADMIN_API_TOKEN=change-me \
 make docker-install
 
 # Docker 日常启动（已有 volume/迁移时；令牌在容器启动时读取，每次需带上或写入 .env）
+# 未配置令牌不会阻塞启动，但管理 API 关闭；服务启动日志会打印 WARN，/api/health 会返回 adminApi: "disabled"
 ADMIN_API_TOKEN=change-me make docker-up
 
 # 生成生产轻量部署包（Release workflow 会自动执行）
@@ -116,7 +117,7 @@ make test
 | `DATABASE_USERNAME` | `vapor_username` | 数据库用户。 |
 | `DATABASE_PASSWORD` | `vapor_password` | 数据库密码。 |
 | `CAS_ROOT` | `./data/music` / Docker 中为 `/data/music` | CAS 原始音频存储根目录。 |
-| `ADMIN_API_TOKEN` | 无 | 管理写操作的 Bearer Token；未配置时扫描、上传和删除接口均会关闭。 |
+| `ADMIN_API_TOKEN` | 无 | 管理写操作的 Bearer Token；未配置时扫描、上传和删除接口均会关闭（`503 admin_api_disabled`），服务启动日志会打印 WARN，`/api/health` 返回 `adminApi: "disabled"`。没有隐式回退来源，需显式配置。 |
 | `SCAN_ROOT` | 无 | 服务端允许扫描的唯一目录。Docker 默认将 `${MUSIC_DIR}` 只读挂载为 `/sources/music` 并设置为此值。 |
 | `MUSIC_DIR` | `./keygenmusic`（Docker） | 要挂载到主服务 `/sources/music` 的宿主机音乐目录。启动或重建容器前设置。 |
 | `SERVER_DECODE_CONCURRENCY` | `1` | 同时执行的冷缓存服务端解码数；限制为 1～32，低并发单机建议保持 1。 |

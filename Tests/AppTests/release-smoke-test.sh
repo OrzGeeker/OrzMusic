@@ -28,7 +28,7 @@ start_mock() {
     local port="$1"
     # 启动 Python mock HTTP 服务器
     python3 -c "
-import json, http.server, socket
+import json, http.server, socket, os
 
 class MockHandler(http.server.BaseHTTPRequestHandler):
     def send_body(self, status, content_type, body, headers=None):
@@ -49,7 +49,8 @@ class MockHandler(http.server.BaseHTTPRequestHandler):
                 'version': '1.0.0',
                 'commit': 'abc123',
                 'database': 'healthy',
-                'cas': 'healthy'
+                'cas': 'healthy',
+                'adminApi': os.environ.get('MOCK_ADMIN_API', 'enabled')
             }).encode())
         elif self.path == '/api/songs/formats':
             self.send_response(200)
@@ -153,6 +154,47 @@ if echo "$OUTPUT" | grep -qi "SMOKE CHECK FAILED"; then
 else
     red "FAIL: Did not fail on unreachable service"
     FAIL=$((FAIL + 1))
+fi
+
+# Test 4: 调用方提供了令牌但服务端报告 adminApi=disabled — 冒烟必须失败
+# （回归保护：ADMIN_API_TOKEN 未传进容器时不能静默“通过”）
+echo "=== Test 4: adminApi disabled while token provided ==="
+PORT=$(find_port)
+if ! MOCK_ADMIN_API=disabled start_mock "$PORT"; then
+    red "FAIL: Could not start mock server"
+    FAIL=$((FAIL + 1))
+else
+    OUTPUT=$(SERVICE_URL="http://127.0.0.1:$PORT" ADMIN_API_TOKEN="test-token" bash "$SCRIPT" 2>&1) || true
+    if echo "$OUTPUT" | grep -qi "SMOKE CHECK FAILED" && echo "$OUTPUT" | grep -qi "adminApi=disabled"; then
+        green "PASS: Admin API gap detected"
+        PASS=$((PASS + 1))
+    else
+        red "FAIL: Did not reject adminApi=disabled with token provided"
+        FAIL=$((FAIL + 1))
+    fi
+    kill "$MOCK_PID" 2>/dev/null || true
+    wait "$MOCK_PID" 2>/dev/null || true
+    MOCK_PID=""
+fi
+
+# Test 5: 未提供令牌且服务端 disabled — 允许通过（仅告警）
+echo "=== Test 5: adminApi disabled without token ==="
+PORT=$(find_port)
+if ! MOCK_ADMIN_API=disabled start_mock "$PORT"; then
+    red "FAIL: Could not start mock server"
+    FAIL=$((FAIL + 1))
+else
+    OUTPUT=$(env -u ADMIN_API_TOKEN SERVICE_URL="http://127.0.0.1:$PORT" bash "$SCRIPT" 2>&1) || true
+    if echo "$OUTPUT" | grep -qi "SMOKE CHECK PASSED" && echo "$OUTPUT" | grep -qi "adminApi=disabled"; then
+        green "PASS: Disabled admin API allowed with warning"
+        PASS=$((PASS + 1))
+    else
+        red "FAIL: Disabled admin API without token should pass with warning"
+        FAIL=$((FAIL + 1))
+    fi
+    kill "$MOCK_PID" 2>/dev/null || true
+    wait "$MOCK_PID" 2>/dev/null || true
+    MOCK_PID=""
 fi
 
 # 汇总
