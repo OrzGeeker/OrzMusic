@@ -35,10 +35,7 @@ public func configure(_ app: Application) throws {
     // 但“健康检查依旧 ready、只有 adminApi: disabled”极易被忽略，因此启动时
     // 必须打印醒目的告警，覆盖所有启动路径（docker compose、native、自定义脚本）。
     if app.adminAPIToken == nil {
-        app.logger.warning(
-            "ADMIN_API_TOKEN is not set: admin API disabled (scan/upload/delete return 503 admin_api_disabled). " +
-            "Set ADMIN_API_TOKEN in the deployment environment to enable administrative endpoints."
-        )
+        app.logger.warning("ADMIN_API_TOKEN is not set: admin API disabled (scan/upload/delete return 503 admin_api_disabled). Set ADMIN_API_TOKEN in the deployment environment to enable administrative endpoints.")
     } else {
         app.logger.notice("ADMIN_API_TOKEN is set: admin API enabled.")
     }
