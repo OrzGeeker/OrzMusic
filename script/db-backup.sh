@@ -72,14 +72,17 @@ echo "Creating database backup: $FILEPATH"
 # 通过 docker compose exec 在 db 容器中执行 pg_dump，
 # 避免暴露数据库端口或密码在命令行参数中。
 # 密码通过 PGPASSWORD 环境变量传递，不打印日志。
+#
+# 关键：容器内的 /tmp 路径通过 `sh -c` 以字符串形式传给容器内 shell，而不是作为
+# 独立参数传给原生 docker.exe。否则 Windows + MSYS/git-bash 的路径转换会把
+# /tmp/x.dump 改写成宿主 C:\...\Temp\x.dump，容器内 pg_dump 写文件即失败（#8）。
+# shellcheck disable=SC2016  # 单引号是故意的：$1/$2/$3 由容器内 shell 展开
 PGPASSWORD="${DATABASE_PASSWORD:-vapor_password}" \
     compose exec -T db \
-    pg_dump \
-    -U "${DATABASE_USERNAME:-vapor_username}" \
-    -d "${DATABASE_NAME:-vapor_database}" \
-    -h localhost \
-    -Fc \
-    -f "/tmp/${FILENAME}" \
+    sh -c 'pg_dump -U "$1" -d "$2" -h localhost -Fc -f "/tmp/$3"' _ \
+    "${DATABASE_USERNAME:-vapor_username}" \
+    "${DATABASE_NAME:-vapor_database}" \
+    "${FILENAME}" \
     2>&1
 
 # 从容器中复制备份到宿主机
@@ -88,9 +91,10 @@ compose cp \
     "$FILEPATH" \
     2>&1
 
-# 清理容器内临时文件（忽略失败）
+# 清理容器内临时文件（忽略失败；同样用 sh -c 避开 MSYS 路径转换）
+# shellcheck disable=SC2016  # $1 由容器内 shell 展开
 compose exec -T db \
-    rm -f "/tmp/${FILENAME}" \
+    sh -c 'rm -f "/tmp/$1"' _ "${FILENAME}" \
     2>/dev/null || true
 
 # ---- 验证备份文件 ----

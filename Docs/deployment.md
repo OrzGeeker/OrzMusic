@@ -221,6 +221,8 @@ curl -fsS -X POST "http://127.0.0.1:8080/api/scan" \
 - `ADMIN_API_TOKEN` 没有隐式回退来源，生产部署应显式配置；缺失时服务仍会 ready，但管理 API 关闭，只能靠启动 WARN 与 `/api/health` 的 `adminApi` 字段发现。
 - `app` / `db` 默认 `restart: unless-stopped`，宿主或 Docker 重启、容器崩溃后自动恢复；`cas-init` 等一次性服务保持 `restart: "no"`。
 - 生产叠加 `docker-compose.production.yml` 后不向宿主发布 PostgreSQL 端口；只使用 `docker-compose.yml` 时端口映射为 `127.0.0.1:5432:5432`，仅供本机调试。
+- Windows（git-bash/MSYS）下为 `BACKUP_DIR` 使用宿主绝对路径（如 `E:/deploy/backups`）；`db-backup.sh` 已用 `sh -c` 传入容器内 `/tmp` 路径，不受 MSYS 参数路径转换影响。
+- `release-preflight` / `release-smoke` 需要可用的 JSON 解析器（`jq` 优先，其次 `python3` / `python`）；缺失时会在升级前明确失败，不会把解析失败误报成「接口字段为空」。
 - 项目名由 `docker-compose.yml` 的 `name: orzmusic` 兜底（v0.0.6 起），按目录切换版本不会新建空数据库。早期版本部署包仍需手动保持 `COMPOSE_PROJECT_NAME` 一致。
 - 镜像同时发布 `linux/amd64` 与 `linux/arm64`（v0.0.6 起），Docker 按运行平台自动拉取对应变体，Apple Silicon 生产机无需额外配置。
 - 自定义 Compose 配置统一用 `COMPOSE_BASE`（空格分隔的 `-f` 参数）；不要用 docker compose 原生语义的 `COMPOSE_FILE`（冒号分隔路径列表），两种语义混用会让 `db-backup` 失败。

@@ -24,8 +24,62 @@ red()    { printf '\033[31m%s\033[0m\n' "$1"; }
 green()  { printf '\033[32m%s\033[0m\n' "$1"; }
 yellow() { printf '\033[33m%s\033[0m\n' "$1"; }
 
+# ---- JSON 解析器探测 ----
+# jq 优先，其次 python3 / python。Windows git-bash 上 python3 可能是 Microsoft
+# Store 的占位别名（command -v 能命中但执行无输出），所以这里用真实解析探针验证，
+# 避免「解析器缺失」被静默降级成「接口字段为空」的假 FAIL（#7）。
+JSON_TOOL=""
+if command -v jq >/dev/null 2>&1 && printf '{}' | jq -e . >/dev/null 2>&1; then
+    JSON_TOOL="jq"
+elif command -v python3 >/dev/null 2>&1 && printf '{}' | python3 -c 'import json,sys; json.load(sys.stdin)' >/dev/null 2>&1; then
+    JSON_TOOL="python3"
+elif command -v python >/dev/null 2>&1 && printf '{}' | python -c 'import json,sys; json.load(sys.stdin)' >/dev/null 2>&1; then
+    JSON_TOOL="python"
+fi
+
+if [ -z "$JSON_TOOL" ]; then
+    red "FAIL: jq or python/python3 is required to parse JSON, but none is usable here."
+    echo "  Install jq, or use 'python' instead of 'python3' on Windows git-bash"
+    echo "  (the Microsoft Store python3 alias resolves but produces no output)."
+    exit 1
+fi
+
+# 取对象标量字段；缺失或 JSON 非法时输出为空。
+json_get() {
+    local json="$1" key="$2"
+    case "$JSON_TOOL" in
+        jq)
+            printf '%s' "$json" | jq -r --arg k "$key" 'if type=="object" then (.[$k] // "") else "" end' 2>/dev/null
+            ;;
+        python*)
+            printf '%s' "$json" | "$JSON_TOOL" -c 'import sys,json
+try: data=json.load(sys.stdin)
+except Exception: data=None
+value=data.get(sys.argv[1]) if isinstance(data,dict) else None
+print("" if value is None else value)' "$key" 2>/dev/null
+            ;;
+    esac
+}
+
+# JSON 是否可解析。
+json_valid() {
+    case "$JSON_TOOL" in
+        jq) printf '%s' "$1" | jq -e . >/dev/null 2>&1 ;;
+        python*) printf '%s' "$1" | "$JSON_TOOL" -c 'import sys,json; json.load(sys.stdin)' >/dev/null 2>&1 ;;
+    esac
+}
+
+# 数组长度；非数组返回非零。
+json_array_len() {
+    case "$JSON_TOOL" in
+        jq) printf '%s' "$1" | jq -e -r 'if type=="array" then length else empty end' 2>/dev/null ;;
+        python*) printf '%s' "$1" | "$JSON_TOOL" -c 'import sys,json; d=json.load(sys.stdin); print(len(d)) if isinstance(d,list) else sys.exit(1)' 2>/dev/null ;;
+    esac
+}
+
 echo "=== Release Smoke Check ==="
 echo "Target: $SERVICE_URL"
+echo "JSON parser: $JSON_TOOL"
 if [ -n "${EXPECTED_VERSION:-}" ]; then
     echo "Expected version: $EXPECTED_VERSION"
 fi
@@ -38,54 +92,59 @@ HEALTH=$($CURL "$SERVICE_URL/api/health" 2>&1) || {
     PASS=false
 }
 if [ "$PASS" = true ]; then
-    STATUS=$(echo "$HEALTH" | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])" 2>/dev/null || echo "")
-    VERSION=$(echo "$HEALTH" | python3 -c "import sys,json; print(json.load(sys.stdin)['version'])" 2>/dev/null || echo "")
-    DB=$(echo "$HEALTH" | python3 -c "import sys,json; print(json.load(sys.stdin)['database'])" 2>/dev/null || echo "")
-    CAS=$(echo "$HEALTH" | python3 -c "import sys,json; print(json.load(sys.stdin)['cas'])" 2>/dev/null || echo "")
-    ADMIN_API=$(echo "$HEALTH" | python3 -c "import sys,json; print(json.load(sys.stdin).get('adminApi',''))" 2>/dev/null || echo "")
-
-    if [ "$STATUS" = "ready" ]; then
-        green "  [PASS] status=ready"
-    else
-        red "  [FAIL] status=$STATUS (expected 'ready')"
-        PASS=false
-    fi
-
-    if [ -n "$VERSION" ]; then
-        green "  [PASS] version=$VERSION"
-    else
-        red "  [FAIL] version is empty"
-        PASS=false
-    fi
-
-    if [ -n "${EXPECTED_VERSION:-}" ] && [ "$VERSION" != "$EXPECTED_VERSION" ]; then
-        red "  [FAIL] version mismatch: expected $EXPECTED_VERSION, got $VERSION"
-        PASS=false
-    fi
-
-    if [ "$DB" = "healthy" ]; then
-        green "  [PASS] database=healthy"
-    else
-        red "  [FAIL] database=$DB"
-        PASS=false
-    fi
-
-    if [ "$CAS" = "healthy" ]; then
-        green "  [PASS] cas=healthy"
-    else
-        red "  [FAIL] cas=$CAS"
-        PASS=false
-    fi
-
-    # 管理 API 是可选能力，但“调用方提供了令牌、服务端却报告 disabled”
-    # 说明令牌没有传进容器/进程，属于升级后静默缺失功能，必须失败。
-    if [ "$ADMIN_API" = "enabled" ]; then
-        green "  [PASS] adminApi=enabled"
-    elif [ -n "${ADMIN_API_TOKEN:-}" ]; then
-        red "  [FAIL] adminApi=$ADMIN_API but ADMIN_API_TOKEN was provided to the smoke check"
+    if ! json_valid "$HEALTH"; then
+        red "  [FAIL] /api/health did not return valid JSON: $(printf '%s' "$HEALTH" | head -c 200)"
         PASS=false
     else
-        yellow "  [WARN] adminApi=$ADMIN_API (set ADMIN_API_TOKEN to enable scan/upload/delete)"
+        STATUS=$(json_get "$HEALTH" status)
+        VERSION=$(json_get "$HEALTH" version)
+        DB=$(json_get "$HEALTH" database)
+        CAS=$(json_get "$HEALTH" cas)
+        ADMIN_API=$(json_get "$HEALTH" adminApi)
+
+        if [ "$STATUS" = "ready" ]; then
+            green "  [PASS] status=ready"
+        else
+            red "  [FAIL] status=$STATUS (expected 'ready')"
+            PASS=false
+        fi
+
+        if [ -n "$VERSION" ]; then
+            green "  [PASS] version=$VERSION"
+        else
+            red "  [FAIL] version is empty"
+            PASS=false
+        fi
+
+        if [ -n "${EXPECTED_VERSION:-}" ] && [ "$VERSION" != "$EXPECTED_VERSION" ]; then
+            red "  [FAIL] version mismatch: expected $EXPECTED_VERSION, got $VERSION"
+            PASS=false
+        fi
+
+        if [ "$DB" = "healthy" ]; then
+            green "  [PASS] database=healthy"
+        else
+            red "  [FAIL] database=$DB"
+            PASS=false
+        fi
+
+        if [ "$CAS" = "healthy" ]; then
+            green "  [PASS] cas=healthy"
+        else
+            red "  [FAIL] cas=$CAS"
+            PASS=false
+        fi
+
+        # 管理 API 是可选能力，但“调用方提供了令牌、服务端却报告 disabled”
+        # 说明令牌没有传进容器/进程，属于升级后静默缺失功能，必须失败。
+        if [ "$ADMIN_API" = "enabled" ]; then
+            green "  [PASS] adminApi=enabled"
+        elif [ -n "${ADMIN_API_TOKEN:-}" ]; then
+            red "  [FAIL] adminApi=$ADMIN_API but ADMIN_API_TOKEN was provided to the smoke check"
+            PASS=false
+        else
+            yellow "  [WARN] adminApi=$ADMIN_API (set ADMIN_API_TOKEN to enable scan/upload/delete)"
+        fi
     fi
 fi
 echo ""
@@ -158,12 +217,12 @@ FORMATS=$($CURL "$SERVICE_URL/api/songs/formats" 2>&1) || {
     PASS=false
 }
 if [ "$PASS" = true ]; then
-    TOTAL=$(echo "$FORMATS" | python3 -c "import sys,json; print(json.load(sys.stdin)['total'])" 2>/dev/null || echo "")
+    TOTAL=$(json_get "$FORMATS" total)
     # total >= 0 means the endpoint works
-    if [ "$TOTAL" -ge 0 ] 2>/dev/null; then
+    if [ -n "$TOTAL" ] && [ "$TOTAL" -ge 0 ] 2>/dev/null; then
         green "  [PASS] formats total=$TOTAL"
     else
-        red "  [FAIL] could not parse format total"
+        red "  [FAIL] could not parse format total from /api/songs/formats"
         PASS=false
     fi
 fi
@@ -177,8 +236,10 @@ SEARCH=$($CURL "$SERVICE_URL/api/songs/search?q=test" 2>&1) || {
 }
 if [ "$PASS" = true ]; then
     # 搜索应该返回一个 JSON 数组（可能为空）
-    if echo "$SEARCH" | python3 -c "import sys,json; data=json.load(sys.stdin); assert isinstance(data, list)" 2>/dev/null; then
-        COUNT=$(echo "$SEARCH" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
+    if ! json_valid "$SEARCH"; then
+        red "  [FAIL] search did not return valid JSON"
+        PASS=false
+    elif COUNT=$(json_array_len "$SEARCH"); then
         green "  [PASS] search returned $COUNT results"
     else
         red "  [FAIL] search did not return a JSON array"

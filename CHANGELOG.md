@@ -1,5 +1,20 @@
 # Changelog
 
+## [Unreleased]
+
+### 修复
+- `db-backup.sh` 改用 `sh -c` 把容器内 `/tmp` 备份路径传给容器 shell，不再作为独立参数
+  交给原生 `docker.exe`：修复 Windows + MSYS/git-bash 路径转换把 `/tmp/x.dump` 改写成
+  宿主 `C:\...\Temp\x.dump`、导致 `release-upgrade` 第 3 步中止的问题（#8）。
+- `release-smoke.sh` 不再硬依赖 `python3` 且不再静默吞掉解析错误：优先 `jq`，回退
+  `python3` / `python`，并用真实解析探针验证（避开 Microsoft Store 的 `python3` 占位
+  别名）；没有可用解析器时明确报错退出，非法 JSON 也会单独提示，不再表现为接口字段
+  全空的假 FAIL。`release-preflight.sh` 增加解析器前置检查（#7）。
+
+### 文档
+- 部署文档与 `DEPLOYMENT.txt` 补充 Windows/MSYS 注意事项（`BACKUP_DIR` 用宿主绝对
+  路径、JSON 解析器要求）。
+
 ## [0.0.8] — 2026-09-11
 
 ### 修复

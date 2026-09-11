@@ -197,6 +197,24 @@ else
     MOCK_PID=""
 fi
 
+# Test 6: 缺少 JSON 解析器时明确失败，而不是降级成字段缺失
+# （issue #7 回归保护：Windows 上只有 python、无 python3）
+echo "=== Test 6: missing JSON parser fails fast ==="
+NOPARSER_BIN=$(mktemp -d /tmp/no-parser-XXXXXX)
+for tool in jq python3 python; do
+    printf '#!/bin/bash\nexit 1\n' > "$NOPARSER_BIN/$tool"
+    chmod +x "$NOPARSER_BIN/$tool"
+done
+OUTPUT=$(PATH="$NOPARSER_BIN:$PATH" SERVICE_URL="http://127.0.0.1:1" bash "$SCRIPT" 2>&1) || true
+rm -rf "$NOPARSER_BIN"
+if echo "$OUTPUT" | grep -qi "required to parse JSON"; then
+    green "PASS: missing parser reported clearly"
+    PASS=$((PASS + 1))
+else
+    red "FAIL: missing parser was not reported: $(echo "$OUTPUT" | head -3)"
+    FAIL=$((FAIL + 1))
+fi
+
 # 汇总
 echo ""
 echo "========= Results ========="

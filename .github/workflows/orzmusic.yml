@@ -72,5 +72,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      # 部署脚本在 macOS 上走系统自带 bash 3.2（空数组/无参 "$@" 语义与 Linux bash 5
+      # 不同），这里显式跑一遍，避免只在 macOS/Windows 复现的脚本回归。
+      - run: make script-test
       - run: ./script/update-audio-core-server.sh
       - run: swift run OrzAudioCoreSmoke

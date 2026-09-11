@@ -119,6 +119,12 @@ Typical production upgrade:
   make release-upgrade
   EXPECTED_VERSION=${VERSION_VALUE} make release-smoke
 
+Windows (git-bash / MSYS) 提示:
+  - BACKUP_DIR 使用宿主绝对路径，例如 E:/deploy/backups；
+  - 容器内备份路径由 db-backup.sh 通过 sh -c 传入，不受 MSYS 参数路径转换影响；
+  - release-smoke / release-preflight 需要可用的 JSON 解析器（jq 优先，
+    其次 python3 / python）；缺失时会直接报错，不会误报成接口异常。
+
 项目名由 docker-compose.yml 钉死为 orzmusic（name: 字段），按版本目录切换
 不会新建空数据库；多实例隔离可用 COMPOSE_PROJECT_NAME 覆盖。
 
