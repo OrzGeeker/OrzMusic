@@ -21,7 +21,7 @@ if native_pid_running; then
 fi
 
 health_url="http://127.0.0.1:$APP_PORT/api/health"
-if curl -s --max-time 2 -o /dev/null "$health_url"; then
+if curl -s --max-time 2 -o "$NATIVE_NULL_DEVICE" "$health_url"; then
     echo "ERROR: port $APP_PORT is already serving HTTP, but it is not the managed Native OrzMusic process" >&2
     echo "Stop the process or Docker service using the port before starting Native OrzMusic." >&2
     exit 1

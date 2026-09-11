@@ -9,7 +9,7 @@ native_load_env
 
 if ! native_pid_running; then
     echo "Native OrzMusic: stopped"
-    if command -v curl >/dev/null 2>&1 && curl -s --max-time 2 -o /dev/null \
+    if command -v curl >/dev/null 2>&1 && curl -s --max-time 2 -o "$NATIVE_NULL_DEVICE" \
         "http://127.0.0.1:$APP_PORT/api/health"; then
         echo "Port $APP_PORT is serving an unmanaged HTTP process (possibly Docker)."
         exit 1

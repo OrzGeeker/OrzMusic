@@ -20,6 +20,14 @@ SMOKE_TIMEOUT="${SMOKE_TIMEOUT:-10}"
 CURL="curl -fsS --max-time $SMOKE_TIMEOUT"
 PASS=true
 
+# curl 丢弃响应体的目标。Windows/MSYS（git-bash、MSYS2）不会把 /dev/null 转成 NUL，
+# mingw 版 curl 会写失败并以 23 退出（client returned ERROR on write），让「读响应头」
+# 静默变成假 FAIL（#10）。这里显式选择可移植的空设备。
+NULL_DEVICE="/dev/null"
+case "$(uname -s 2>/dev/null)" in
+    MINGW*|MSYS*|CYGWIN*) NULL_DEVICE="NUL" ;;
+esac
+
 red()    { printf '\033[31m%s\033[0m\n' "$1"; }
 green()  { printf '\033[32m%s\033[0m\n' "$1"; }
 yellow() { printf '\033[33m%s\033[0m\n' "$1"; }
@@ -155,19 +163,17 @@ PAGE=$($CURL "$SERVICE_URL/" 2>&1) || {
     red "FAIL: Cannot reach frontend page"
     PASS=false
 }
-if [ "$PASS" = true ]; then
-    if echo "$PAGE" | grep -qi "OrzMusic"; then
-        green "  [PASS] Page contains OrzMusic"
-    else
-        red "  [FAIL] Page does not contain 'OrzMusic'"
-        PASS=false
-    fi
+if echo "$PAGE" | grep -qi "OrzMusic"; then
+    green "  [PASS] Page contains OrzMusic"
+else
+    red "  [FAIL] Page does not contain 'OrzMusic'"
+    PASS=false
 fi
 echo ""
 
 # ---- 3. 静态交付策略 ----
 echo "--- 3. Static Delivery ---"
-HOME_HEADERS=$($CURL -D - -o /dev/null "$SERVICE_URL/" 2>&1) || {
+HOME_HEADERS=$($CURL -D - -o "$NULL_DEVICE" "$SERVICE_URL/" 2>&1) || {
     red "  [FAIL] cannot read frontend headers"
     PASS=false
 }
@@ -179,7 +185,7 @@ else
 fi
 
 ALPINE_PATH="/vendor/alpinejs/alpine-3.15.12.min.js"
-ALPINE_HEADERS=$($CURL -H "Accept-Encoding: gzip" -D - -o /dev/null "$SERVICE_URL$ALPINE_PATH" 2>&1) || {
+ALPINE_HEADERS=$($CURL -H "Accept-Encoding: gzip" -D - -o "$NULL_DEVICE" "$SERVICE_URL$ALPINE_PATH" 2>&1) || {
     red "  [FAIL] cannot read vendored Alpine"
     PASS=false
 }
@@ -196,7 +202,7 @@ else
     PASS=false
 fi
 
-WASM_HEADERS=$($CURL -D - -o /dev/null \
+WASM_HEADERS=$($CURL -D - -o "$NULL_DEVICE" \
     "$SERVICE_URL/audio/orz_audio_builtin.wasm?v=20260717-controls-seek-v1" 2>&1) || {
     red "  [FAIL] cannot read builtin WASM"
     PASS=false
@@ -216,15 +222,13 @@ FORMATS=$($CURL "$SERVICE_URL/api/songs/formats" 2>&1) || {
     red "FAIL: Cannot reach /api/songs/formats"
     PASS=false
 }
-if [ "$PASS" = true ]; then
-    TOTAL=$(json_get "$FORMATS" total)
-    # total >= 0 means the endpoint works
-    if [ -n "$TOTAL" ] && [ "$TOTAL" -ge 0 ] 2>/dev/null; then
-        green "  [PASS] formats total=$TOTAL"
-    else
-        red "  [FAIL] could not parse format total from /api/songs/formats"
-        PASS=false
-    fi
+TOTAL=$(json_get "$FORMATS" total)
+# total >= 0 means the endpoint works
+if [ -n "$TOTAL" ] && [ "$TOTAL" -ge 0 ] 2>/dev/null; then
+    green "  [PASS] formats total=$TOTAL"
+else
+    red "  [FAIL] could not parse format total from /api/songs/formats"
+    PASS=false
 fi
 echo ""
 
@@ -234,17 +238,15 @@ SEARCH=$($CURL "$SERVICE_URL/api/songs/search?q=test" 2>&1) || {
     red "FAIL: Cannot reach /api/songs/search"
     PASS=false
 }
-if [ "$PASS" = true ]; then
-    # 搜索应该返回一个 JSON 数组（可能为空）
-    if ! json_valid "$SEARCH"; then
-        red "  [FAIL] search did not return valid JSON"
-        PASS=false
-    elif COUNT=$(json_array_len "$SEARCH"); then
-        green "  [PASS] search returned $COUNT results"
-    else
-        red "  [FAIL] search did not return a JSON array"
-        PASS=false
-    fi
+# 搜索应该返回一个 JSON 数组（可能为空）
+if ! json_valid "$SEARCH"; then
+    red "  [FAIL] search did not return valid JSON"
+    PASS=false
+elif COUNT=$(json_array_len "$SEARCH"); then
+    green "  [PASS] search returned $COUNT results"
+else
+    red "  [FAIL] search did not return a JSON array"
+    PASS=false
 fi
 echo ""
 

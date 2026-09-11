@@ -45,7 +45,7 @@ class MockHandler(http.server.BaseHTTPRequestHandler):
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
             self.wfile.write(json.dumps({
-                'status': 'ready',
+                'status': os.environ.get('MOCK_HEALTH_STATUS', 'ready'),
                 'version': '1.0.0',
                 'commit': 'abc123',
                 'database': 'healthy',
@@ -213,6 +213,57 @@ if echo "$OUTPUT" | grep -qi "required to parse JSON"; then
 else
     red "FAIL: missing parser was not reported: $(echo "$OUTPUT" | head -3)"
     FAIL=$((FAIL + 1))
+fi
+
+# Test 7: MSYS/MINGW 下丢弃 body 必须用 NUL，避免 curl -o /dev/null 退出 23（#10）
+echo "=== Test 7: MSYS uses NUL for discarded bodies ==="
+TESTDIR_NUL=$(mktemp -d /tmp/release-smoke-nul-XXXXXX)
+mkdir -p "$TESTDIR_NUL/mock-bin"
+CURL_LOG="$TESTDIR_NUL/curl.log"
+cat > "$TESTDIR_NUL/mock-bin/uname" <<'MOCK'
+#!/bin/bash
+echo "MINGW64_NT-10.0-19045"
+MOCK
+cat > "$TESTDIR_NUL/mock-bin/curl" <<MOCK
+#!/bin/bash
+printf '%s\n' "\$*" >> "$CURL_LOG"
+printf 'HTTP/1.1 200 OK\r\nCache-Control: public, max-age=31536000, immutable\r\nContent-Encoding: gzip\r\n\r\n'
+exit 0
+MOCK
+chmod +x "$TESTDIR_NUL/mock-bin/uname" "$TESTDIR_NUL/mock-bin/curl"
+OUTPUT=$(PATH="$TESTDIR_NUL/mock-bin:$PATH" SERVICE_URL="http://127.0.0.1:1" bash "$SCRIPT" 2>&1) || true
+USED_NUL=$(grep -c -- "-o NUL" "$CURL_LOG" 2>/dev/null || true)
+USED_DEVNULL=$(grep -c -- "-o /dev/null" "$CURL_LOG" 2>/dev/null || true)
+rm -rf "$TESTDIR_NUL"
+if [ "$USED_NUL" -ge 3 ] && [ "$USED_DEVNULL" -eq 0 ]; then
+    green "PASS: discarded bodies go to NUL under MSYS"
+    PASS=$((PASS + 1))
+else
+    red "FAIL: expected NUL device (NUL=$USED_NUL, /dev/null=$USED_DEVNULL)"
+    FAIL=$((FAIL + 1))
+fi
+
+# Test 8: 前段失败时 Format/Search 仍执行并打印结果（不再静默跳过，#10）
+echo "=== Test 8: format/search still run after earlier failure ==="
+PORT=$(find_port)
+if ! MOCK_HEALTH_STATUS=degraded start_mock "$PORT"; then
+    red "FAIL: Could not start mock server"
+    FAIL=$((FAIL + 1))
+else
+    OUTPUT=$(SERVICE_URL="http://127.0.0.1:$PORT" bash "$SCRIPT" 2>&1) || true
+    if echo "$OUTPUT" | grep -q "SMOKE CHECK FAILED" \
+        && echo "$OUTPUT" | grep -q "formats total=42" \
+        && echo "$OUTPUT" | grep -q "search returned 1 results"; then
+        green "PASS: later sections still report results"
+        PASS=$((PASS + 1))
+    else
+        red "FAIL: later sections were silently skipped"
+        echo "$OUTPUT" | grep -E 'Format Summary|formats total|Search API|search returned' | sed 's/^/  /'
+        FAIL=$((FAIL + 1))
+    fi
+    kill "$MOCK_PID" 2>/dev/null || true
+    wait "$MOCK_PID" 2>/dev/null || true
+    MOCK_PID=""
 fi
 
 # 汇总

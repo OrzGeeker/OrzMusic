@@ -223,6 +223,7 @@ curl -fsS -X POST "http://127.0.0.1:8080/api/scan" \
 - 生产叠加 `docker-compose.production.yml` 后不向宿主发布 PostgreSQL 端口；只使用 `docker-compose.yml` 时端口映射为 `127.0.0.1:5432:5432`，仅供本机调试。
 - Windows（git-bash/MSYS）下为 `BACKUP_DIR` 使用宿主绝对路径（如 `E:/deploy/backups`）；`db-backup.sh` 已用 `sh -c` 传入容器内 `/tmp` 路径，不受 MSYS 参数路径转换影响。
 - `release-preflight` / `release-smoke` 需要可用的 JSON 解析器（`jq` 优先，其次 `python3` / `python`）；缺失时会在升级前明确失败，不会把解析失败误报成「接口字段为空」。
+- Windows（git-bash/MSYS）下脚本不把 `/dev/null` 传给 curl 的 `-o`（mingw 版 curl 会因写失败退出 23）：`release-smoke.sh` 与 native 脚本按平台改用 `NUL`，静态交付与端口占用检查不再出现假 FAIL。
 - 项目名由 `docker-compose.yml` 的 `name: orzmusic` 兜底（v0.0.6 起），按目录切换版本不会新建空数据库。早期版本部署包仍需手动保持 `COMPOSE_PROJECT_NAME` 一致。
 - 镜像同时发布 `linux/amd64` 与 `linux/arm64`（v0.0.6 起），Docker 按运行平台自动拉取对应变体，Apple Silicon 生产机无需额外配置。
 - 自定义 Compose 配置统一用 `COMPOSE_BASE`（空格分隔的 `-f` 参数）；不要用 docker compose 原生语义的 `COMPOSE_FILE`（冒号分隔路径列表），两种语义混用会让 `db-backup` 失败。

@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+### 修复
+- `release-smoke.sh` 在 Windows/MSYS（git-bash、MSYS2）下不再用 `curl -o /dev/null`：
+  mingw 版 curl 不认 `/dev/null`，写 body 失败退出 23，让第 3 节静态交付三项假 FAIL；
+  现在按平台选择可移植空设备（MSYS/MINGW/CYGWIN 用 `NUL`）（#10）。
+- `release-smoke.sh` 第 2/4/5 节不再因前段失败而静默跳过：首页、格式统计、搜索接口
+  无条件执行并打印结果，避免把「脚本不可移植」误读成「接口坏了」（#10）。
+- 同类问题一并修复 `native-up.sh` / `native-status.sh`：MSYS/MINGW 下改用 `NUL`，
+  不再因 `curl -o /dev/null` 退出 23 而把已占用端口误判为可用。
+- 把 `Tests/AppTests/release-smoke-test.sh` 纳入 `make script-test`，并新增 NUL 设备
+  与“前段失败仍执行后续检查”两项回归用例。
+
 ## [0.0.9] — 2026-09-11
 
 ### 修复

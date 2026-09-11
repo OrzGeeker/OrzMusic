@@ -7,6 +7,13 @@ NATIVE_ENV_FILE="${NATIVE_ENV_FILE:-$NATIVE_PROJECT_ROOT/.env.native}"
 NATIVE_PID_FILE="${NATIVE_PID_FILE:-$NATIVE_PROJECT_ROOT/.orzmusic/native.pid}"
 NATIVE_LOG_FILE="${NATIVE_LOG_FILE:-$NATIVE_PROJECT_ROOT/.orzmusic/native.log}"
 
+# curl 丢弃响应体的目标。Windows/MSYS（git-bash、MSYS2）不会把 /dev/null 转成 NUL，
+# mingw 版 curl 会写失败并以 23 退出，从而误判端口/健康状态（#10）。
+NATIVE_NULL_DEVICE="/dev/null"
+case "$(uname -s 2>/dev/null)" in
+    MINGW*|MSYS*|CYGWIN*) NATIVE_NULL_DEVICE="NUL" ;;
+esac
+
 native_load_env() {
     if [ -f "$NATIVE_ENV_FILE" ]; then
         set -a

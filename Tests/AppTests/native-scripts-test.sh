@@ -73,6 +73,28 @@ else
     fail "native-status misidentified an unmanaged service: $status_output"
 fi
 
+# Test: MSYS/MINGW 下 native 脚本的 curl 丢弃 body 必须用 NUL（#10）
+nul_root="$TEST_ROOT/nul"
+make_fixture "$nul_root"
+curl_log="$nul_root/curl-args.log"
+cat > "$nul_root/mock-bin/uname" <<'MOCK'
+#!/bin/bash
+echo "MINGW64_NT-10.0-19045"
+MOCK
+cat > "$nul_root/mock-bin/curl" <<MOCK
+#!/bin/bash
+printf '%s\n' "\$*" >> "$curl_log"
+exit 0
+MOCK
+chmod +x "$nul_root/mock-bin/uname" "$nul_root/mock-bin/curl"
+PATH="$nul_root/mock-bin:$PATH" bash "$nul_root/script/native-up.sh" >/dev/null 2>&1 || true
+PATH="$nul_root/mock-bin:$PATH" bash "$nul_root/script/native-status.sh" >/dev/null 2>&1 || true
+if grep -q -- "-o NUL" "$curl_log" 2>/dev/null && ! grep -q -- "-o /dev/null" "$curl_log" 2>/dev/null; then
+    pass "native scripts use a portable null device under MSYS"
+else
+    fail "native scripts used /dev/null under MSYS: $(cat "$curl_log" 2>/dev/null)"
+fi
+
 echo "Passed: $PASS"
 echo "Failed: $FAIL"
 [ "$FAIL" -eq 0 ]
