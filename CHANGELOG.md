@@ -10,6 +10,9 @@
 - `ADMIN_API_TOKEN` 缺失时服务启动打印明确 WARN（覆盖所有启动路径），`/api/health`
   的 `adminApi` 字段保持不变；`release-smoke` 在调用方提供了令牌、服务端却报告
   `adminApi: disabled` 时判定失败，避免管理 API 被静默关闭（#3）。
+- 修复 `script/db-backup.sh` 与 `Tests/AppTests/db-backup-test.sh` 在 macOS 自带
+  bash 3.2 下 `set -u` 展开空数组报 `unbound variable` 的问题；`db-backup-test.sh`
+  同时加入 `make script-test`，并让不可写目录用例做真实断言。
 
 ### 文档
 - 部署文档与 README 明确 `ADMIN_API_TOKEN` 没有隐式回退来源、缺失时的告警位置与
