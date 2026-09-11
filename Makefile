@@ -211,6 +211,7 @@ browser-test:
 script-test:
 	bash Tests/AppTests/native-scripts-test.sh
 	bash Tests/AppTests/release-scripts-test.sh
+	bash Tests/AppTests/db-backup-test.sh
 
 .PHONY: docker-build
 docker-build:

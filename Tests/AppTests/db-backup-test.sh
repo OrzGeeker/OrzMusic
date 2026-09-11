@@ -63,7 +63,11 @@ MOCK
 run_script() {
     local TESTDIR fixture_output
     TESTDIR=$(setup_mock_env)
-    local extra_env=("${@}")
+    # 兼容 macOS bash 3.2：set -u 下 "$@" / 空数组展开会报 unbound variable。
+    local extra_env=()
+    if [ "$#" -gt 0 ]; then
+        extra_env=("$@")
+    fi
 
     # 在子 shell 中运行
     set +e
@@ -71,8 +75,11 @@ run_script() {
         cd "$TESTDIR" || exit 1
         export PATH="$TESTDIR/mock-bin:$PATH"
         export BACKUP_DIR="$TESTDIR/backups"
-        # shellcheck disable=SC2086
-        env "${extra_env[@]}" bash "$SCRIPT" 2>&1
+        if [ "${#extra_env[@]}" -gt 0 ]; then
+            env "${extra_env[@]}" bash "$SCRIPT" 2>&1
+        else
+            bash "$SCRIPT" 2>&1
+        fi
     )
     local rc=$?
     set -e
@@ -161,25 +168,27 @@ fi
 
 # Test 6: 不可写备份目录时失败（验证目录检测）
 echo "=== Test 6: Unwritable backup directory ==="
-TESTDIR=$(mktemp -d /tmp/db-backup-test-XXXXXX)
+TESTDIR=$(setup_mock_env)
 mkdir -p "$TESTDIR/readonly"
-chmod 444 "$TESTDIR/readonly"
-touch "$TESTDIR/VERSION"
-echo "1.0.0" > "$TESTDIR/VERSION"
+chmod 555 "$TESTDIR/readonly"
 set +e
 OUTPUT=$(
     cd "$TESTDIR" || exit 1
-    BACKUP_DIR="$TESTDIR/readonly" bash "$SCRIPT" 2>&1
+    export PATH="$TESTDIR/mock-bin:$PATH"
+    export BACKUP_DIR="$TESTDIR/readonly"
+    VERSION="1.0.0" bash "$SCRIPT" 2>&1
 )
+RC=$?
 set -e
 chmod -R 755 "$TESTDIR"
 cleanup "$TESTDIR"
-if echo "$OUTPUT" | grep -qi "ERROR"; then
+# 目录不可写时脚本必须非 0 退出或明确报 ERROR，不能静默声称成功
+if [ "$RC" -ne 0 ] || echo "$OUTPUT" | grep -qi "ERROR"; then
     green "PASS: Rejected unwritable directory"
     PASS=$((PASS + 1))
 else
-    red "NOTE: Unwritable dir test returned: $(echo "$OUTPUT" | head -1)"
-    PASS=$((PASS + 1))
+    red "FAIL: unwritable directory was not rejected: $(echo "$OUTPUT" | head -3)"
+    FAIL=$((FAIL + 1))
 fi
 
 # 汇总

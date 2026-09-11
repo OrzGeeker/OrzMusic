@@ -54,12 +54,15 @@ fi
 # 注意：不要向本脚本传入 docker compose 原生语义的 COMPOSE_FILE（冒号分隔路径列表），
 # 这里统一使用 COMPOSE_BASE（空格分隔的 -f 参数）。
 compose() {
-    # shellcheck disable=SC2206,SC2086
-    local args=(${COMPOSE_BASE:-})
+    # COMPOSE_BASE 是空格分隔的 -f 参数列表，故意不加引号以触发分词。
+    # 这里不先存进数组：macOS 自带 bash 3.2 在 set -u 下展开空数组
+    # "${args[@]}" 会报 unbound variable，而 ${COMPOSE_BASE:-} 展开为空时会
+    # 自动消失。
+    # shellcheck disable=SC2086
     if [ -n "$COMPOSE_PROJECT" ]; then
-        docker compose "${args[@]}" --project-name "$COMPOSE_PROJECT" "$@"
+        docker compose ${COMPOSE_BASE:-} --project-name "$COMPOSE_PROJECT" "$@"
     else
-        docker compose "${args[@]}" "$@"
+        docker compose ${COMPOSE_BASE:-} "$@"
     fi
 }
 
