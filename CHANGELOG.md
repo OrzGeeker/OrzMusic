@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.0.8] — 2026-09-11
 
 ### 修复
 - 官方 Compose 默认给 `app` / `db` 容器加 `restart: unless-stopped`：宿主或 Docker 重启、
