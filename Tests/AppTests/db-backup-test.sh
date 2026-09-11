@@ -36,6 +36,9 @@ setup_mock_env() {
     # mock docker: pg_dump 模拟成功；cp 模拟创建非空备份文件
     cat > "$TESTDIR/mock-bin/docker" <<'MOCK'
 #!/bin/bash
+if [ -n "${MOCK_ARG_LOG:-}" ]; then
+    printf '%s\n' "$@" >> "$MOCK_ARG_LOG"
+fi
 if echo "$@" | grep -q "pg_dump"; then
     exit 0
 fi
@@ -188,6 +191,35 @@ if [ "$RC" -ne 0 ] || echo "$OUTPUT" | grep -qi "ERROR"; then
     PASS=$((PASS + 1))
 else
     red "FAIL: unwritable directory was not rejected: $(echo "$OUTPUT" | head -3)"
+    FAIL=$((FAIL + 1))
+fi
+
+# Test 7: 容器内 /tmp 路径不露出为独立参数（MSYS 路径转换回归保护，issue #8）
+echo "=== Test 7: container /tmp path stays inside sh -c ==="
+TESTDIR=$(setup_mock_env)
+ARG_LOG="$TESTDIR/docker-args.log"
+set +e
+OUTPUT=$(
+    cd "$TESTDIR" || exit 1
+    export PATH="$TESTDIR/mock-bin:$PATH"
+    export BACKUP_DIR="$TESTDIR/backups"
+    export MOCK_ARG_LOG="$ARG_LOG"
+    VERSION="1.0.0" bash "$SCRIPT" 2>&1
+)
+set -e
+RESULT=no
+if echo "$OUTPUT" | grep -qi "Backup saved" && [ -f "$ARG_LOG" ] \
+    && grep -q 'pg_dump.*-f "/tmp/' "$ARG_LOG" \
+    && ! grep -qE '^/tmp/orzmusic-db-[^/]*\.dump$' "$ARG_LOG"; then
+    RESULT=yes
+fi
+ARG_COUNT=$(grep -c . "$ARG_LOG" 2>/dev/null || true)
+cleanup "$TESTDIR"
+if [ "$RESULT" = yes ]; then
+    green "PASS: /tmp path reaches the container shell, not native docker.exe args"
+    PASS=$((PASS + 1))
+else
+    red "FAIL: container /tmp path leaked as standalone arg (logged args: $ARG_COUNT)"
     FAIL=$((FAIL + 1))
 fi
 

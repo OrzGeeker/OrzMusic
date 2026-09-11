@@ -41,6 +41,7 @@ else
 fi
 
 # 4. 数据库可达
+# shellcheck disable=SC2086  # COMPOSE_BASE 是空格分隔的 -f 列表，故意不分词保护
 if $COMPOSE $COMPOSE_BASE exec -T db pg_isready -U "${DATABASE_USERNAME:-vapor_username}" -d "${DATABASE_NAME:-vapor_database}" -h localhost >/dev/null 2>&1; then
     echo "  [PASS] Database is ready"
 else
@@ -61,6 +62,22 @@ fi
 if [ -n "${IMAGE_REF:-}" ]; then
     # 检查当前的 image 标签，确保不会回滚到相同版本
     echo "  [SKIP] Override check: IMAGE_REF validation deferred to upgrade script"
+fi
+
+# 7. JSON 解析器（release-smoke.sh 验收依赖）
+json_parser=""
+if command -v jq >/dev/null 2>&1 && printf '{}' | jq -e . >/dev/null 2>&1; then
+    json_parser="jq"
+elif command -v python3 >/dev/null 2>&1 && printf '{}' | python3 -c 'import json,sys; json.load(sys.stdin)' >/dev/null 2>&1; then
+    json_parser="python3"
+elif command -v python >/dev/null 2>&1 && printf '{}' | python -c 'import json,sys; json.load(sys.stdin)' >/dev/null 2>&1; then
+    json_parser="python"
+fi
+if [ -n "$json_parser" ]; then
+    echo "  [PASS] JSON parser available: $json_parser"
+else
+    echo "  [FAIL] jq or python/python3 is required by release-smoke.sh"
+    PASS=false
 fi
 
 echo ""
