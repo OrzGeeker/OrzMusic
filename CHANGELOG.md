@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.0.9] — 2026-09-11
 
 ### 修复
 - `db-backup.sh` 改用 `sh -c` 把容器内 `/tmp` 备份路径传给容器 shell，不再作为独立参数
