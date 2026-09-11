@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.0.10] — 2026-09-11
 
 ### 修复
 - `release-smoke.sh` 在 Windows/MSYS（git-bash、MSYS2）下不再用 `curl -o /dev/null`：
