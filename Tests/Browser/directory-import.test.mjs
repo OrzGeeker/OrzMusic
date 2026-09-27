@@ -96,7 +96,7 @@ const file = (name, size = 128, relativePath = '') => ({ name, size, webkitRelat
 
 test('directory import UI provides picker buttons that trigger hidden file inputs, never uses localStorage, and exposes the I shortcut', () => {
     assert.match(playerView, /webkitdirectory directory multiple/);
-    assert.match(playerView, /app\.css\?v=20260801-directory-import-v6/);
+    assert.match(playerView, /app\.css\?v=20260927-touch-input-font-v1/);
     assert.match(playerView, /id="filePicker"[^>]*type="file" multiple/);
     assert.match(playerView, /id="directoryPicker"[^>]*webkitdirectory directory multiple/);
     assert.match(playerView, /class="visually-hidden"/);
