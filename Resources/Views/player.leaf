@@ -9,12 +9,12 @@
     <link rel="icon" href="/brand/orz-logo.svg?v=20260727-rounded-v5" type="image/svg+xml">
     <link rel="apple-touch-icon" href="/brand/orz-logo-192.png?v=20260727-rounded-v5">
     <style>[x-cloak]{display:none!important}</style>
-    <link rel="stylesheet" href="/audio/app.css?v=20260801-directory-import-v6">
+    <link rel="stylesheet" href="/audio/app.css?v=20260927-touch-input-font-v1">
     <script>window.ORZ_PLAYBACK_DIAGNOSTICS_ENABLED = #(playbackDiagnosticsEnabled);</script>
-    <script defer src="/audio/player.js?v=20260726-worker-reuse-v1"></script>
+    <script defer src="/audio/player.js?v=20260927-wake-lock-media-session-v1"></script>
     <script defer src="/audio/decoder-manifest.generated.js?v=20260718-sdk-v1"></script>
     <script defer src="/audio/visualizer.js?v=20260723b"></script>
-    <script defer src="/audio/app.js?v=20260801-directory-import-v6"></script>
+    <script defer src="/audio/app.js?v=20260927-media-session-actions-v1"></script>
     <script defer src="/vendor/alpinejs/alpine-3.15.12.min.js"></script>
 </head>
 <body x-data="playerApp()" @keydown.window="handleShortcut($event)"

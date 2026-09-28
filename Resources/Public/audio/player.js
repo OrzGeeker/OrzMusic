@@ -45,12 +45,23 @@ class OrzAudioPlayer {
         this._workletNode = null;
         this._workerControl = null;
         this._workletModulePromise = null;
+        // 屏幕常亮 (Screen Wake Lock) — issue #13。所有写入点见 _setWakeIntent。
+        this._wakeGen = 0;          // 播放意图代数：任何意图变化都令在途 request() 失效
+        this._wakeWanted = false;   // 当前是否应持有锁（仅由 _setPlaying 驱动）
+        this._wakeLock = null;      // 唯一有效 WakeLockSentinel | null
+        this._wakePending = null;   // 在途 request() 的 Promise
+        this._wakePendingGen = -1;  // 在途请求对应的代数
+        this._wakeRetryAt = 0;      // release 事件的重试冷却时间戳
+        this._mediaSessionSongId = null; // 已写入 Media Session metadata 的曲目
+        this._mediaPositionAt = 0;       // setPositionState 节流时间戳
         this.diagnostics = { firstFrameMs: 0, decodeRate: 0, underruns: 0,
             peakBufferMs: 0, memoryPeakBytes: 0 };
 
         // 配置
         this.sampleRate = 48000;
         this.onEnded = null;
+        this.onPrev = null;         // Media Session 上一首（队列逻辑在 app.js）
+        this.onNext = null;         // Media Session 下一首（队列逻辑在 app.js）
         this.onTimeUpdate = null;
         this.onError = null;
         this.onPlaybackStateChange = null;
@@ -71,6 +82,13 @@ class OrzAudioPlayer {
         });
         this.audioEl.addEventListener('ended', () => this._onEnded());
         this.audioEl.addEventListener('error', (e) => this._onAudioError(e));
+
+        // 页面隐藏时 UA 会自动释放 wake lock，因此必须监听可见性变化，在回到前台时重新获取。
+        // 必须无条件注册（不能只在成功获取后懒注册）：后台标签页自动续播会在 hidden 状态下
+        // 发起 request()（必然 reject），若当时没有监听器，用户切回前台将永远不会重新获取。
+        this._onWakeVisibilityChange = this._onWakeVisibilityChange.bind(this);
+        this._bindWakeVisibility();
+        this._bindMediaSessionHandlers();
     }
 
     // ── WASM 初始化 ──
@@ -171,6 +189,7 @@ class OrzAudioPlayer {
         this.isPlaying = false;
         this.currentTime = 0;
         this.duration = 0;
+        this._syncMediaSession(song);
 
         const strategy = song.playStrategy || 'directFile';
         this._diagnostic = {
@@ -698,6 +717,7 @@ class OrzAudioPlayer {
             this.currentTime = Math.min(this._workerTimeOffset + this.audioCtx.currentTime - this._workerClockStart,
                 this.duration || Infinity);
             this.diagnostics.underruns = Atomics.load(control, 4);
+            this._syncMediaSessionPosition();
             if (this.onTimeUpdate) this.onTimeUpdate(this.currentTime, this.duration);
             if (Atomics.load(control, 2) === 2 && this.currentTime >= this.duration) return this._onEnded();
             if (Atomics.load(control, 2) === 3) return;
@@ -845,6 +865,7 @@ class OrzAudioPlayer {
         const tick = () => {
             if (!this.isPlaying) return;
             this.currentTime = this.audioCtx.currentTime - this._audioBufferClockStart;
+            this._syncMediaSessionPosition();
             if (this.onTimeUpdate) this.onTimeUpdate(this.currentTime, this.duration);
             if (this.currentTime < this.duration) {
                 this._washProgressRAF = requestAnimationFrame(tick);
@@ -981,6 +1002,7 @@ class OrzAudioPlayer {
                 this.audioCtx.currentTime - firstPlayTime,
                 this.duration
             );
+            this._syncMediaSessionPosition();
             if (this.onTimeUpdate) {
                 this.onTimeUpdate(this.currentTime, this.duration);
             }
@@ -1006,6 +1028,7 @@ class OrzAudioPlayer {
         if (this.audioEl.duration) {
             this.currentTime = this.audioEl.currentTime;
             this.duration = this.audioEl.duration;
+            this._syncMediaSessionPosition();
             if (this.onTimeUpdate) {
                 this.onTimeUpdate(this.currentTime, this.duration);
             }
@@ -1021,6 +1044,10 @@ class OrzAudioPlayer {
         const next = Boolean(value);
         if (this.isPlaying === next) return;
         this.isPlaying = next;
+        // isPlaying 先落地，唤醒层与 Media Session 才不会读到过期真值；
+        // 二者内部全部静默降级，绝不影响播放。
+        this._setWakeIntent(next);
+        this._syncMediaSessionPlaybackState(next);
         if (this.onPlaybackStateChange) this.onPlaybackStateChange(next);
     }
 
@@ -1031,12 +1058,248 @@ class OrzAudioPlayer {
         if (this.onError) this.onError(e);
     }
 
+    // ── 屏幕常亮 (Screen Wake Lock) ──
+    //
+    // 约束（issue #13）：
+    //   1. 触发点唯一：_setPlaying() → _setWakeIntent()，覆盖所有播放路径。
+    //   2. play() 先 stop() 再异步解码播放，所以 acquire 相对 release 是「迟到」的：
+    //      _wakeGen 令被取代的在途 request() 自行归还，避免「已停止却仍持有锁」。
+    //   3. 页面隐藏时 UA 会自动释放；request() 在隐藏 / 低电量模式 / 无权限时会 reject。
+    //   4. 任何失败都不得影响播放 —— 全部静默降级。
+    //   5. 只能用 globalThis.document / globalThis.navigator 访问：Tests/Browser 的 vm
+    //      沙箱没有这两个全局，裸引用会在 new OrzAudioPlayer() 时抛 ReferenceError。
+
+    /** 播放意图变化 —— 唯一的意图写入点。意图变化即递增代数，使在途 request() 全部作废。 */
+    _setWakeIntent(wanted) {
+        const next = Boolean(wanted);
+        if (this._wakeWanted === next) return;
+        this._wakeWanted = next;
+        this._wakeGen++;
+        if (next) this._syncWakeLock();
+        else this._releaseWakeSentinel();
+    }
+
+    /** 让意图与实际持有对齐；可重复调用（visibilitychange 与 release 重试都会走这里）。 */
+    _syncWakeLock() {
+        if (this._disposed || !this._wakeWanted) return;
+        // 页面不可见时 request() 必然 reject，等回到前台再取。
+        if (globalThis.document?.hidden === true) return;
+        if (this._wakeLock) return;
+        // 同一代已有在途请求：不重复发起（hide→show 抖动会走到这里）。
+        if (this._wakePending && this._wakePendingGen === this._wakeGen) return;
+        this._acquireWakeLock(this._wakeGen);
+    }
+
+    /**
+     * 发起一次 wake lock 请求 —— fire-and-forget，绝不抛出、也绝不被 await。
+     * @param {number} gen 发起时的代数，用于 settle 时判定是否已被取代
+     */
+    _acquireWakeLock(gen) {
+        const wakeLock = globalThis.navigator?.wakeLock;
+        // 非安全上下文 (http:// LAN IP) 与 iOS < 16.4 没有 wakeLock：静默降级
+        if (!wakeLock || typeof wakeLock.request !== 'function') return;
+        if (this._disposed || !this._wakeWanted) return;
+
+        let request;
+        try {
+            // 必须保留 receiver：解构或透传 request 会触发 "Illegal invocation"
+            request = wakeLock.request('screen');
+        } catch (_) {
+            return; // 某些引擎对未知 type 会同步抛出
+        }
+        if (!request || typeof request.then !== 'function') return;
+
+        this._wakePending = request;
+        this._wakePendingGen = gen;
+
+        const settle = () => {
+            if (this._wakePending === request) {
+                this._wakePending = null;
+                this._wakePendingGen = -1;
+            }
+        };
+
+        // .then 本身也可能同步抛出（非标准 thenable）。本方法从 _setPlaying 同步调用，
+        // 抛出会一路冒到音频链路，所以整段都包起来。
+        try {
+            request.then((sentinel) => {
+                settle();
+                // sentinel 为空/缺方法：无法持有也无法监听，直接放弃（不抛）。
+                if (!sentinel || typeof sentinel.addEventListener !== 'function') {
+                    this._releaseSentinel(sentinel);
+                    return;
+                }
+                // 已被取代（stop/pause/换歌）、页面已隐藏、已销毁，或已有更新的句柄胜出：
+                // 立刻归还，绝不留「isPlaying === false 却仍持有锁」的野句柄。
+                if (gen !== this._wakeGen || !this._wakeWanted || this._disposed ||
+                    globalThis.document?.hidden === true || this._wakeLock) {
+                    this._releaseSentinel(sentinel);
+                    return;
+                }
+                this._wakeLock = sentinel;
+                sentinel.addEventListener('release', () => this._onWakeLockReleased(sentinel));
+            }, () => {
+                // 隐藏 / 低电量模式 / 权限被拒：静默放弃。
+                // 被拒的请求不产生 sentinel，也就不会触发 release，因此不会形成循环。
+                settle();
+            });
+        } catch (_) {
+            settle();
+        }
+    }
+
+    /** 释放当前持有的锁（幂等；不改变意图、不递增代数）。 */
+    _releaseWakeSentinel() {
+        const sentinel = this._wakeLock;
+        this._wakeLock = null;
+        this._wakePending = null;
+        this._wakePendingGen = -1;
+        if (sentinel) this._releaseSentinel(sentinel);
+    }
+
+    /** 归还一个 sentinel，吞掉同步异常与 rejected promise。 */
+    _releaseSentinel(sentinel) {
+        try {
+            const released = sentinel?.release?.();
+            if (released && typeof released.catch === 'function') released.catch(() => {});
+        } catch (_) {}
+    }
+
+    /** UA 单方面释放了锁（页面隐藏 / 省电模式 / UA 政策）；只有当前有效句柄才允许改动状态。 */
+    _onWakeLockReleased(sentinel) {
+        if (this._wakeLock !== sentinel) return; // 已废弃的 sentinel：不得清掉新句柄
+        this._wakeLock = null;
+        if (this._disposed || !this._wakeWanted) return;
+        if (globalThis.document?.hidden === true) return; // 回前台时 visibilitychange 会重取
+        const now = this._now();
+        if (now < this._wakeRetryAt) return; // 冷却：防止 UA 立刻释放导致的请求风暴
+        this._wakeRetryAt = now + 5000;
+        this._syncWakeLock();
+    }
+
+    _bindWakeVisibility() {
+        globalThis.document?.addEventListener?.('visibilitychange', this._onWakeVisibilityChange);
+    }
+
+    _unbindWakeVisibility() {
+        globalThis.document?.removeEventListener?.('visibilitychange', this._onWakeVisibilityChange);
+    }
+
+    _onWakeVisibilityChange() {
+        if (this._disposed) return;
+        if (globalThis.document?.hidden === true) {
+            // UA 已自动释放，这里立即丢弃句柄，避免把过期 sentinel 当成持有中。
+            // 必须一并递增代数：隐藏前发出的 request() 仍在途，若不作废，它可能在回到前台
+            // 之后才 resolve —— 那时 _wakeLock 还是空的，于是这个「UA 早已释放、release
+            // 事件也已经错过」的 sentinel 会被当成持有中，导致 _syncWakeLock 永不重取、
+            // 播放中屏幕却照常熄灭。
+            this._wakeGen++;
+            this._wakeLock = null;
+            this._wakePending = null;
+            this._wakePendingGen = -1;
+            // 意图 (_wakeWanted) 保持不变：回到前台必须重新获取。
+            return;
+        }
+        this._wakeRetryAt = 0; // 新的前台周期 = 新的机会（低电量模式可能已经结束）
+        this._syncWakeLock();
+    }
+
+    // ── Media Session（锁屏 / 通知栏控制）──
+    //
+    // 同样全部静默降级：vm 沙箱与不支持的浏览器下 navigator.mediaSession 为 undefined。
+    // 上/下一首的队列逻辑在 app.js（依赖 activeList/currentIndex），故经 onPrev/onNext 外派。
+
+    _mediaSession() {
+        const session = globalThis.navigator?.mediaSession;
+        return session && typeof session === 'object' ? session : null;
+    }
+
+    /** 按曲目写入锁屏元数据。仓库无封面图资源，故不设 artwork。 */
+    _syncMediaSession(song) {
+        const session = this._mediaSession();
+        if (!session || !song) return;
+        if (this._mediaSessionSongId != null && this._mediaSessionSongId === song.id) return;
+        try {
+            if (typeof globalThis.MediaMetadata !== 'function') return;
+            session.metadata = new globalThis.MediaMetadata({
+                title: song.title || '',
+                artist: song.artist || '',
+                album: song.album || '',
+            });
+        } catch (_) { return; }
+        // 只有写入成功才记账：否则 MediaMetadata 尚不可用时提前缓存 id，
+        // 之后同一首歌会被去重挡在门外，元数据永远补不上。
+        this._mediaSessionSongId = song.id ?? null;
+    }
+
+    _syncMediaSessionPlaybackState(isPlaying) {
+        const session = this._mediaSession();
+        if (!session) return;
+        try {
+            session.playbackState = isPlaying ? 'playing' : (this.currentSong ? 'paused' : 'none');
+        } catch (_) {}
+    }
+
+    /**
+     * 同步锁屏进度条。setPositionState 对非法值会抛异常，且热路径（RAF 循环）会高频调用，
+     * 因此这里做 1 秒节流 + 合法性校验。
+     */
+    _syncMediaSessionPosition() {
+        const session = this._mediaSession();
+        if (!session || typeof session.setPositionState !== 'function') return;
+        const { duration, currentTime: position } = this;
+        if (!Number.isFinite(duration) || duration <= 0) return;
+        if (!Number.isFinite(position) || position < 0 || position > duration) return;
+        // 先校验再计时：曲目刚起的头几拍 duration 还是 0/NaN，若先计时会让这几拍白白吃掉
+        // 一整个窗口，等 duration 就绪后还要再等 1 秒锁屏进度才动。
+        const now = this._now();
+        if (now - this._mediaPositionAt < 1000) return;
+        this._mediaPositionAt = now;
+        try {
+            session.setPositionState({ duration, playbackRate: 1, position });
+        } catch (_) {}
+    }
+
+    _bindMediaSessionHandlers() {
+        const session = this._mediaSession();
+        if (!session || typeof session.setActionHandler !== 'function') return;
+        const seekRelative = (delta) => {
+            if (!Number.isFinite(this.duration) || this.duration <= 0) return;
+            return this.seek((this.currentTime + delta) / this.duration);
+        };
+        const handlers = {
+            play: () => { if (!this.isPlaying) void this.togglePlay(); },
+            pause: () => { if (this.isPlaying) void this.togglePlay(); },
+            // 刻意不注册 stop：stop() 会清空音源（audioEl.src='' / 销毁 WASM 解码器）却保留
+            // currentSong，于是锁屏会停在「已暂停」且播放键看似可用，按下却必然失败并弹错误提示。
+            // app 内也没有停止入口（stop() 只被 play() 与 dispose() 调用），暂停已覆盖该需求，
+            // 主流音乐应用的锁屏同样只有播放/暂停/上下一首。缺省不注册即可，无需置 null。
+            seekbackward: (details) => seekRelative(-(details?.seekOffset || 10)),
+            seekforward: (details) => seekRelative(details?.seekOffset || 10),
+            seekto: (details) => {
+                if (!Number.isFinite(this.duration) || this.duration <= 0) return;
+                if (!Number.isFinite(details?.seekTime)) return;
+                return this.seek(details.seekTime / this.duration);
+            },
+            previoustrack: () => { if (this.onPrev) this.onPrev(); },
+            nexttrack: () => { if (this.onNext) this.onNext(); },
+        };
+        for (const [action, handler] of Object.entries(handlers)) {
+            try { session.setActionHandler(action, handler); } catch (_) {}
+        }
+    }
+
     /**
      * 释放资源
      */
     dispose() {
-        this._disposed = true;
-        this.stop();
+        this._disposed = true;          // 在途 acquire 会在 settle 时因 _disposed 自行归还
+        this._unbindWakeVisibility();   // 先解绑，避免关闭过程中被 visibilitychange 进入
+        this.stop();                    // → _setPlaying(false) → _setWakeIntent(false) → 释放
+        // 兜底：isPlaying 本就是 false 时 _setWakeIntent 会早退，这里确保不留残句柄。
+        this._wakeWanted = false;
+        this._releaseWakeSentinel();
+        this._mediaSessionSongId = null;
         for (const worker of this._workerPool.values()) worker.terminate();
         this._workerPool.clear();
         if (this.audioCtx) {

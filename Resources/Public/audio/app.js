@@ -52,7 +52,8 @@ function playerApp(){return{
     },
     attachPlayerCallbacks(){
         player.onTimeUpdate=(ct,dur)=>{this.currentTime=ct;this.duration=dur;this.isPlaying=player.isPlaying;this.progressPercent=dur>0?clamp(ct/dur)*100:0;if(dur>0&&this.currentSong&&!this.currentSong.duration)this.currentSong.duration=dur};
-        player.onEnded=()=>this.next(); player.onPlaybackStateChange=value=>{this.isPlaying=value;this.isLoadingTrack=false;this._syncVisualizer()};
+        player.onEnded=()=>this.next(); player.onNext=()=>this.next(); player.onPrev=()=>this.prev();
+        player.onPlaybackStateChange=value=>{this.isPlaying=value;this.isLoadingTrack=false;this._syncVisualizer()};
         player.onError=error=>{this.isLoadingTrack=false;this.notify(`无法播放：${error?.message||'未知错误'}`,'error')};
         if(globalThis.ORZ_PLAYBACK_DIAGNOSTICS_ENABLED===true)player.onDiagnostic=payload=>{void fetch('/api/diagnostics/playback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),keepalive:true}).catch(()=>{})};
     },
