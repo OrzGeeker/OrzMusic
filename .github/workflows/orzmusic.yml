@@ -2,10 +2,14 @@ name: OrzMusic
 
 # 这里刻意不设 paths 过滤。GitHub Actions 的 required status check 与 paths 过滤
 # 同时存在时，未触及过滤路径的 PR 永远等不到该 check 上报，会一直停在 "Expected"
-# 而无法合并。既然 application-tests / macos-audio-core-smoke 要作为强制门禁，
-# 就必须覆盖全部变更，因此所有 push / PR 都完整跑一遍（公开仓库 Actions 分钟数不计费）。
+# 而无法合并。两个 job 都是强制门禁，因此必须覆盖全部变更。
+#
+# push 只跑 main：分支上的提交由 pull_request 事件覆盖（门禁也是在 PR 上判定的）。
+# 若 push 不限定分支，同一个 PR 会因 push 与 pull_request 各触发一次而跑两遍，
+# rollup 里出现 4 条重复 check，白白翻倍 CI 占用。
 on:
   push:
+    branches: [main]
   pull_request:
 
 jobs:
