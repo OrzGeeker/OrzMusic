@@ -16,7 +16,11 @@ let package = Package(
        .macOS(.v13)
     ],
     products: [
-        .library(name: "OrzAudioCore", targets: ["OrzAudioKit"]),
+        // 名必须与 SDK 的 C 库 libOrzAudioCore.dylib 区分开：SwiftPM 的 library product 会生成
+        // 同名产物 libOrzAudioCore.a，而它在链接搜索路径中排在 .audio-core-sdk/server/native/lib
+        // 之前，会遮住真正的 C 库，导致全部 _orz_* 符号未定义。默认 swiftbuild 引擎（Swift 6.4 /
+        // Xcode 27）把产物放在 .build/out/Products/Debug/ 才会撞上，旧的 native 引擎布局不同故未暴露。
+        .library(name: "OrzAudioKit", targets: ["OrzAudioKit"]),
         .library(name: "OrzAudioCoreC", targets: ["OrzAudioCoreSDK"]),
         .executable(name: "OrzAudioCoreSmoke", targets: ["OrzAudioCoreSmoke"]),
         .executable(name: "OrzFingerprintAudit", targets: ["OrzFingerprintAudit"]),
