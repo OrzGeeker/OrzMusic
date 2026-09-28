@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.0.11] — 2026-09-28
+
+### 修复
+- 触屏设备的文本输入框字号提升到 16px，修复 iOS Safari 聚焦输入框时强制放大页面且
+  不还原的问题。按主指针 `(hover:none) and (pointer:coarse)` 判定而非视口宽度，
+  iPad 与横屏手机同样覆盖，触屏笔记本保留原有桌面排版，且不禁用双指缩放（#12）。
+- 播放期间申请 Screen Wake Lock 保持屏幕常亮，并接入 Media Session：锁屏/通知栏显示
+  曲目元数据与播放状态、同步进度、支持播放/暂停与上/下一首、快进快退。页面隐藏后
+  回到前台自动重取；不支持时（非安全上下文、iOS < 16.4、低电量模式、权限被拒）
+  静默降级，不影响播放（#13）。
+- `Package.swift` 的 `OrzAudioCore` library product 重命名为 `OrzAudioKit`，消除其产物
+  `libOrzAudioCore.a` 与 SDK 提供的 `libOrzAudioCore.dylib` 重名、在默认 swiftbuild
+  引擎下遮蔽真正 C 库导致 `_orz_*` 符号全部未定义的问题（#14）。
+
+### 文档
+- `AGENTS.md` 补记跑测试的两个环境前置条件：keygenmusic submodule 需先初始化、原生
+  SDK 产物需先安装，以及 library product 与 SDK 同名遮蔽的排查方法（#17）。
+
 ## [0.0.10] — 2026-09-11
 
 ### 修复
