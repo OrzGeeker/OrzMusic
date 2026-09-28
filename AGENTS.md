@@ -32,6 +32,20 @@ swift run OrzMusicService
 docker compose up --build -d
 ```
 
+### 跑测试前的前置条件
+
+- `Tests/Browser/*.test.mjs` 里的 WASM 解码用例依赖 `keygenmusic/` 子模块中的 fixture。
+  该目录是 git submodule（见 `.gitmodules`），克隆后未初始化时这几个用例会以 ENOENT 失败，
+  看起来像"既有失败"，实际是环境缺失：先跑 `git submodule update --init --recursive`。
+  初始化后 `make browser-test` 应为 111 例全过。
+- `swift test` 需要原生 SDK 产物，先跑 `./script/update-audio-core-server.sh`
+  （不是 `update-audio-core-web.sh`，那个只装浏览器端 WASM）。
+- 若 `swift test` 报全部 `_orz_*` 符号未定义，先检查 `Package.swift` 里有没有与 SDK 的
+  `libOrzAudioCore.dylib` 同名的 library product：SwiftPM 会把它编译成 `libOrzAudioCore.a`，
+  而它在 `-L` 搜索路径中排在 `.audio-core-sdk/server/native/lib` 之前，会遮蔽真正的 C 库。
+  默认的 swiftbuild 引擎（Swift 6.4 / Xcode 27）把产物放在 `.build/out/Products/Debug/`，
+  旧的 native 引擎布局不同，所以不会暴露这个问题。
+
 ## SDK 更新
 
 ```bash
