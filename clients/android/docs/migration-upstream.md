@@ -264,7 +264,10 @@ bash EasyAndroid/tools/ui-dump.sh com.jokerhub.orzmusic.android
 
 ## 10. 之后(不属于本次迁移)
 
-1. `clients/web`:把 `Resources/Public` + `Resources/Views` 挪进 `clients/web/`(需要改 Vapor 的 public/views 路径与 Dockerfile)。
+1. ~~`clients/web`:把 `Resources/Public` + `Resources/Views` 挪进 `clients/web/`~~ —— **已评估,决定不做**:
+   Web 与 Vapor 同进程、同镜像、服务端渲染,单拆目录拿不到收益,反而让部署路径多一层映射。
+   触发条件与将来若做「真正前后端分离」的顺序见
+   [Docs/backlog/web-client-split-evaluation.md](../../../Docs/backlog/web-client-split-evaluation.md)。
 2. `core/kotlin`(KMP)+ `sdk/audio-kit-android`:Android 改为消费发布坐标,`clients/android` 用 composite build 接入。
 3. `Docs/api.md` 由服务端拥有,`core/spec` 放 OpenAPI + 队列/策略测试向量,各端做 conformance。
 4. `clients/apple`:SwiftUI 实现同一套 `OrzAudioPlayer` / `PlaybackQueue` / `PlaybackPolicy`。

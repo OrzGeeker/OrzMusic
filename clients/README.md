@@ -6,7 +6,7 @@
 | 目录 | 平台 | 状态 | 构建 |
 |---|---|---|---|
 | [`android/`](android/README.md) | Android(手机 / 平板 / TV / VR 2D 面板) | ✅ 可用 | Gradle(`./gradlew` 在 `android/` 下) |
-| `web/` | 浏览器 | 仍在 `Resources/Public` + `Resources/Views` | — |
+| `web/` | 浏览器 | 仍在 `Resources/Public` + `Resources/Views` | 与 Vapor 同进程、同镜像、服务端渲染 —— **不做目录拆分**,理由见 [Docs/backlog/web-client-split-evaluation.md](../Docs/backlog/web-client-split-evaluation.md) |
 | `apple/` | iOS / macOS(预留包名 `com.jokerhub.orzmusic.apple`) | 计划中 | — |
 
 ## 单一事实来源
