@@ -234,8 +234,13 @@ http://192.0.2.10:8080/      # 局域网调试(清单里允许了 cleartext)
 # 2) 机器能查的自检(包名 / 版本 / 签名 / ABI / 非 debuggable)
 bash scripts/store-check.sh --target play
 
-# 3) 发版:写 version.properties + CHANGELOG → 打 android-v<version> tag → CI 出 Release
+# 3) 准备发版提交(写 version.properties + CHANGELOG,推到 release/android-x.y.z 分支)
 bash scripts/android-release.sh --version 0.7.0
+#    → 开 PR → 合并(rebase,保留 "release: prepare x.y.z" 提交信息)
+
+# 4) 回到 main 拉一次,打 android-v<version> tag → CI 出签名 APK/AAB + Release
+git checkout main && git pull
+bash scripts/android-release.sh --tag
 ```
 
 人工资料清单见 [`store/play.md`](store/play.md) / [`store/cn.md`](store/cn.md)。
