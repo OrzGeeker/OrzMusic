@@ -184,10 +184,11 @@ TV 上 D-pad 验收:进「曲库」→ 上下走格式筛选和歌曲列表 → 
 | GitHub Release 产物 | ✅ `store-check.sh --apk/--aab` 直接检查**已发布的** 0.7.0:包名 / versionName=0.7.0 / versionCode=700 / 非 debuggable / 无 debug 钩子 / 指纹 `d8121929…` 与 `signing-manifest.txt` 一致 / AAB 结构与 arm64 齐备 |
 | Pico 4 装**正式包** | ✅ 先 `adb uninstall`(与 debug 签名不同),再装 `OrzMusic-android-0.7.0.apk`;`versionName=0.7.0` 且 flags 里**没有 DEBUGGABLE**;冷启动 `Status: ok`,前台是 `MainActivity`,`PlaybackService` 起来、系统侧已登记 AVRCP media session;无 `FATAL` |
 | Pico 4 装**回 debug 包** | ✅ 由本仓库 `./gradlew :app:assembleDebug` 构建后安装,`ui-dump.sh` 自截图正常(曲库 5533 首、宽屏侧栏 + 表格),验证完恢复成 debug(自截图钩子只在 debug 里) |
-| TCL 电视 | ⏭️ 验收时不在线;电视侧最后验证的是 0.6.x(见上一条记录),产物差异只有版本号与品牌图 |
+| TCL 电视(Android 11 / armeabi-v7a) | ✅ `tv-install.sh` 走 TGuard 图形化安装器;1920x1080 下侧栏 + 表格正常,曲库 5533 首;D-pad:侧栏 ↔ 曲库、列表内逐行移动,焦点环恒为 1498x89(不缩放);播放 XM(`Half Side Products`)成功 —— `AudioPlaybackConfiguration state:started`、`PlaybackService` 前台、进度 0:18 → 0:25 递增,无 `FATAL` |
 
 > 结论:**迁入本仓库后构建出的包,与迁出前行为一致**;正式包能装、能起、能注册媒体会话,
-> debug 包的自截图链路也没坏。电视在线时补一次 `tv-install.sh` 即可。
+> debug 包的自截图链路没坏,电视上 D-pad 与原生解码(MOD/XM → `liborzaudio`,armv7)也正常。
+> 电视装机走 `tv-install.sh`(TCL 禁用 `adb install`,约 60~80s),不用试普通安装。
 
 ## 商店物料
 
