@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
@@ -96,14 +96,15 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          name: OrzMusic Android ${{ github.ref_name }}
+          name: OrzMusic Android ${{ steps.meta.outputs.ver }}
           body: |
-            ## OrzMusic Android ${{ github.ref_name }}
+            ## OrzMusic Android ${{ steps.meta.outputs.ver }}
 
             ### 制品
             - `OrzMusic-android-${{ steps.meta.outputs.ver }}.apk` —— 侧载 / 国内商店
             - `OrzMusic-android-${{ steps.meta.outputs.ver }}.aab` —— Google Play 上传
 
+            Git Tag: `${{ github.ref_name }}`
             Git Commit: `${{ github.sha }}`
 
             > applicationId `com.jokerhub.orzmusic.android` 与签名密钥自首次发布起不再变更,
