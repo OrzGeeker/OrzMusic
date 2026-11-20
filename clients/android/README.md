@@ -177,6 +177,18 @@ TV 上 D-pad 验收:进「曲库」→ 上下走格式筛选和歌曲列表 → 
 > ⚠️ Pico 的**自截图拍不到系统输入法**(IME 是另一个窗口),只能用
 > `dumpsys input_method` 的 `mInputShown` 判断。
 
+### 验收记录(2026-11-20,迁入本仓库后的 0.7.0)
+
+| 项 | 结论 |
+|---|---|
+| GitHub Release 产物 | ✅ `store-check.sh --apk/--aab` 直接检查**已发布的** 0.7.0:包名 / versionName=0.7.0 / versionCode=700 / 非 debuggable / 无 debug 钩子 / 指纹 `d8121929…` 与 `signing-manifest.txt` 一致 / AAB 结构与 arm64 齐备 |
+| Pico 4 装**正式包** | ✅ 先 `adb uninstall`(与 debug 签名不同),再装 `OrzMusic-android-0.7.0.apk`;`versionName=0.7.0` 且 flags 里**没有 DEBUGGABLE**;冷启动 `Status: ok`,前台是 `MainActivity`,`PlaybackService` 起来、系统侧已登记 AVRCP media session;无 `FATAL` |
+| Pico 4 装**回 debug 包** | ✅ 由本仓库 `./gradlew :app:assembleDebug` 构建后安装,`ui-dump.sh` 自截图正常(曲库 5533 首、宽屏侧栏 + 表格),验证完恢复成 debug(自截图钩子只在 debug 里) |
+| TCL 电视 | ⏭️ 验收时不在线;电视侧最后验证的是 0.6.x(见上一条记录),产物差异只有版本号与品牌图 |
+
+> 结论:**迁入本仓库后构建出的包,与迁出前行为一致**;正式包能装、能起、能注册媒体会话,
+> debug 包的自截图链路也没坏。电视在线时补一次 `tv-install.sh` 即可。
+
 ## 商店物料
 
 **品牌只有一个来源**:服务端仓库的 `Resources/Public/brand/orz-logo.svg`(母版)
@@ -233,6 +245,8 @@ http://192.0.2.10:8080/      # 局域网调试(清单里允许了 cleartext)
 
 # 2) 机器能查的自检(包名 / 版本 / 签名 / ABI / 非 debuggable)
 bash scripts/store-check.sh --target play
+#    也可以直接检查**已发布的产物**(例如下载回来的 Release 附件):
+#    bash scripts/store-check.sh --apk OrzMusic-android-0.7.0.apk --aab OrzMusic-android-0.7.0.aab
 
 # 3) 准备发版提交(写 version.properties + CHANGELOG,推到 release/android-x.y.z 分支)
 bash scripts/android-release.sh --version 0.7.0
