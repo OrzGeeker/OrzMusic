@@ -158,7 +158,7 @@ on:
 | server 版本 | 根 `VERSION` + `vX.Y.Z` tag,不动 |
 | 变更日志 | `clients/android/CHANGELOG.md`(不写进根 `CHANGELOG.md`) |
 | tag | `android-vX.Y.Z`(前缀即命名空间) |
-| 发版入口 | 根 `Makefile` 的 `android-build` / `android-test` / `android-release` |
+| 发版入口 | 根 `Makefile` 的 `android-build` / `android-test` / `android-release`;`main` 受保护,所以是「准备分支 → PR 合并 → `--tag`」两步 |
 
 ```make
 android-build:            ## 构建 debug 包
@@ -170,8 +170,9 @@ android-release:          ## 发版:<version> 取自 version.properties,推 andr
 
 `scripts/android-release.sh` 是 EasyAndroid `tools/release.sh` 的**瘦身移植**:
 按 `clients/android/**` 范围内的 Conventional Commits 推导段位 → 写
-`version.properties` 的版本历史 + `CHANGELOG.md` → commit → 打 `android-v*` tag → push。
-只保留 Android 相关逻辑,不搬 `apps/` 扫描、设备自检那部分。
+`version.properties` 的版本历史 + `CHANGELOG.md` → 提交到 `release/android-x.y.z` 分支并推送。
+**打 tag 是第二步**:`main` 上有 `ai-gate` 规则集(rebase 合并 + required checks),
+直接把发版提交推到 main 会被拒;合并之后在 main 上跑 `--tag` 才推 `android-v*`。
 
 > 版本线建议:从 `0.6.1` 继续,迁移本身是 `refactor`(不涨版本);
 > 第一次从新家发正式包时出 `0.7.0`(`android-v0.7.0`)。
@@ -222,7 +223,7 @@ git ls-files -s gradlew                     # 期望 100755
 
 # 5. 加 CI / Makefile 目标,推 PR,确认三个门禁都绿
 
-# 6. 打 android-v0.7.0 试发一次,确认 Release 里有签名 APK + AAB
+# 6. 发 0.7.0:准备分支 → PR → 合并 → 在 main 上 --tag,确认 Release 里有签名 APK + AAB
 
 # 7. 真机验收(仍用 EasyAndroid 的设备脚本,APK 传绝对路径)
 bash EasyAndroid/tools/tv-install.sh /path/OrzMusic/clients/android/app/build/outputs/apk/debug/app-debug.apk

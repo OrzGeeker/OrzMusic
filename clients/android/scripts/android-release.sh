@@ -6,6 +6,12 @@
 #   根目录的 vX.Y.Z 是**服务端**版本(由 VERSION 文件 + release.yml 校验),
 #   客户端独立推进。两者混用一个 tag 会互相卡住。
 #
+# main 是受保护的(必须走 PR),所以发版分两步:
+#   1) 准备:写 version.properties + CHANGELOG,提交到 release/android-x.y.z 分支并推送
+#      → 开 PR,等门禁绿了合并(rebase merge,保留提交信息)
+#   2) 打 tag:合并后回到 main 拉一次,再执行 --tag
+#      → 推 android-vx.y.z,CI 构建签名 APK/AAB 并建 Release
+#
 # 段位怎么推(只看 clients/android/ 下的提交)
 #   feat: …                    → MINOR
 #   fix: … / perf: …           → PATCH
@@ -13,11 +19,13 @@
 #   docs/chore/refactor/test/ci/build → 不发版
 #
 # 用法
-#   bash scripts/android-release.sh                  # 推导 → 写文件 → 提交 → 打 tag → 推
-#   bash scripts/android-release.sh --dry-run        # 只显示会做什么
-#   bash scripts/android-release.sh --check          # 只校验干净/同步/tag 未占用
+#   bash scripts/android-release.sh                  # 准备发版分支(推导段位)
 #   bash scripts/android-release.sh --version 0.7.0  # 指定版本
 #   bash scripts/android-release.sh --as minor       # 强制段位
+#   bash scripts/android-release.sh --dry-run        # 只显示会做什么
+#   bash scripts/android-release.sh --check          # 只校验
+#   bash scripts/android-release.sh --tag            # 合并后在 main 上打 tag 并发 Release
+#   bash scripts/android-release.sh --tag --version 0.7.0   # 顺带校验版本一致
 #   bash scripts/android-release.sh --yes            # 不交互确认
 #
 set -uo pipefail
@@ -29,15 +37,16 @@ VF="$CLIENT/version.properties"
 CLE="$CLIENT/CHANGELOG.md"
 SLUG="OrzGeeker/OrzMusic"
 
-DRY=0; CHECK=0; YES=0; AS=""; WANT=""
+DRY=0; CHECK=0; YES=0; AS=""; WANT=""; DO_TAG=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) DRY=1 ;;
     --check)   CHECK=1 ;;
     --yes|-y)  YES=1 ;;
+    --tag)     DO_TAG=1 ;;
     --as)      shift; AS="${1:-}" ;;
     --version) shift; WANT="${1:-}" ;;
-    -h|--help) sed -n '3,24p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '3,30p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "未知参数: $1" >&2; exit 2 ;;
   esac
   shift
@@ -49,28 +58,63 @@ bad(){ printf '  ❌ %s\n' "$1"; }
 is_semver(){ printf '%s' "$1" | grep -qE '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; }
 read_version(){ sed -n 's/^version[[:space:]]*=[[:space:]]*//p' "$VF" 2>/dev/null | tr -d '\r' | head -1; }
 
-CUR="$(read_version)"
-is_semver "$CUR" || die "version.properties 里的 version='$CUR' 不是严格 SemVer"
-
-echo "════════ 校验 ════════"
-ok "当前版本 $CUR"
-BR="$(git -C "$REPO" rev-parse --abbrev-ref HEAD)"
-[ "$BR" = "main" ] && ok "在 main 上" || bad "当前分支是 $BR(发版应该在 main 上)"
-if [ -n "$(git -C "$REPO" status --porcelain)" ]; then
-  bad "工作区不干净"
-  git -C "$REPO" status --short | sed 's/^/       /'
-  [ "$DRY" = 1 ] || exit 1
-else
-  ok "工作区干净"
-fi
-if git -C "$REPO" rev-parse -q --verify '@{u}' >/dev/null 2>&1; then
-  if [ "$(git -C "$REPO" rev-list --count '@{u}..HEAD')" != 0 ]; then
-    bad "有未推送的提交(先 push —— tag 必须打在已推送的提交上)"
+# 通用前置:工作区干净 / main / 与远端同步
+preflight(){
+  echo "════════ 校验 ════════"
+  BR="$(git -C "$REPO" rev-parse --abbrev-ref HEAD)"
+  [ "$BR" = "main" ] && ok "在 main 上" || bad "当前分支是 $BR(发版应该在 main 上)"
+  if [ -n "$(git -C "$REPO" status --porcelain)" ]; then
+    bad "工作区不干净"
+    git -C "$REPO" status --short | sed 's/^/       /'
     [ "$DRY" = 1 ] || exit 1
   else
-    ok "已与 origin/$BR 同步"
+    ok "工作区干净"
   fi
+  if git -C "$REPO" rev-parse -q --verify '@{u}' >/dev/null 2>&1; then
+    if [ "$(git -C "$REPO" rev-list --count '@{u}..HEAD')" != 0 ]; then
+      bad "有未推送的提交(先 git pull —— tag 必须打在已推送的提交上)"
+      [ "$DRY" = 1 ] || exit 1
+    else
+      ok "已与 origin/main 同步"
+    fi
+  fi
+}
+
+# ── 模式二:合并之后打 tag ────────────────────────────────────────────────
+if [ "$DO_TAG" = 1 ]; then
+  preflight
+  VER="$(read_version)"
+  is_semver "$VER" || die "version.properties 里的 version='$VER' 不是严格 SemVer"
+  ok "main 上的客户端版本 = $VER"
+  [ -z "$WANT" ] || [ "$WANT" = "$VER" ] || die "--version $WANT 与 version.properties($VER)不一致"
+  TAG="android-v$VER"
+  git -C "$REPO" rev-parse -q --verify "refs/tags/$TAG" >/dev/null && die "tag $TAG 已存在"
+  echo
+  echo "  将要打 tag $TAG → $(git -C "$REPO" rev-parse --short HEAD)"
+  echo
+  if [ "$CHECK" = 1 ]; then echo "(--check:校验通过,没有打 tag)"; exit 0; fi
+  if [ "$DRY" = 1 ]; then echo "(--dry-run:没有打 tag)"; exit 0; fi
+  if [ "$YES" != 1 ]; then
+    printf '  确认打 tag %s? [y/N] ' "$TAG"
+    read -r ans </dev/tty 2>/dev/null || ans=""
+    case "$ans" in [yY]*) ;; *) echo "  已取消。"; exit 0 ;; esac
+  fi
+  git -C "$REPO" tag -a "$TAG" -m "$VER
+
+OrzMusic Android 客户端。
+版本号来源: clients/android/version.properties" || die "打 tag 失败"
+  git -C "$REPO" push origin "refs/tags/$TAG" || die "推送 tag 失败"
+  ok "已推送 $TAG"
+  echo
+  echo "CI 会构建签名 APK/AAB 并建 Release: https://github.com/$SLUG/actions"
+  exit 0
 fi
+
+# ── 模式一:准备发版提交 ────────────────────────────────────────────────
+preflight
+CUR="$(read_version)"
+is_semver "$CUR" || die "version.properties 里的 version='$CUR' 不是严格 SemVer"
+ok "当前版本 $CUR"
 
 LAST="$(git -C "$REPO" describe --tags --match 'android-v*' --abbrev=0 2>/dev/null || true)"
 RANGE="${LAST:+$LAST..}HEAD"
@@ -88,9 +132,9 @@ for l in "${LOG[@]}"; do
   s="${l#* }"
   case "$s" in "Merge "*|"Revert "*|release:*) continue ;; esac
   case "$s" in
-    *!:*)                          has_break=1 ;;
-    feat|feat\(*|feat:*)           has_feat=1 ;;
-    fix|fix\(*|fix:*|perf|perf\(*|perf:*) has_fix=1 ;;
+    *!:*)                                   has_break=1 ;;
+    feat|feat\(*|feat:*)                    has_feat=1 ;;
+    fix|fix\(*|fix:*|perf|perf\(*|perf:*)   has_fix=1 ;;
   esac
 done
 
@@ -121,25 +165,26 @@ is_semver "$NEW" || die "新版本 '$NEW' 不是严格 SemVer"
 [ "$NEW" != "$CUR" ] || die "新版本和当前版本相同($CUR)"
 TAG="android-v$NEW"
 git -C "$REPO" rev-parse -q --verify "refs/tags/$TAG" >/dev/null && die "tag $TAG 已存在"
+BRANCH="release/android-$NEW"
 
 echo
 echo "  段位      $BUMP"
 echo "  新版本    $CUR → $NEW"
-echo "  客户端 tag $TAG"
+echo "  分支      $BRANCH"
 echo "  变更      ${#LOG[@]} 条(仅 clients/android/ 下的提交)"
 echo
-
 if [ "$CHECK" = 1 ]; then echo "(--check:校验通过,没有改任何东西)"; exit 0; fi
 if [ "$DRY" = 1 ]; then echo "(--dry-run:上面就是会做的事,没有改任何东西)"; exit 0; fi
 if [ "$YES" != 1 ]; then
-  printf '  确认发版 %s? [y/N] ' "$NEW"
+  printf '  确认准备 %s 的发版提交? [y/N] ' "$NEW"
   read -r ans </dev/tty 2>/dev/null || ans=""
   case "$ans" in [yY]*) ;; *) echo "  已取消,什么都没改。"; exit 0 ;; esac
 fi
 
-TODAY="$(date +%F)"
+git -C "$REPO" checkout -q -b "$BRANCH" || die "建分支 $BRANCH 失败"
 
-# ── version.properties:插一行历史(放在 version= 上方的分隔注释之前)────────────
+TODAY="$(date +%F)"
+# version.properties:插一行历史(放在 version= 上方的分隔注释之前)
 python3 - "$VF" "$NEW" "$TODAY" <<'PY' || die "改 version.properties 失败"
 import re, sys
 vf, ver, today = sys.argv[1:4]
@@ -148,9 +193,6 @@ vi = next((i for i, l in enumerate(src) if re.match(r'^version\s*=', l)), None)
 if vi is None:
     sys.exit('version.properties 里没有 version= 行')
 sep = max((i for i in range(vi) if re.match(r'^# ─+$', src[i])), default=vi)
-title = ''
-for l in open(vf, encoding='utf-8'):
-    pass
 src.insert(sep, '#   %s  %s  %s' % (ver, today, '见 CHANGELOG.md'))
 src[vi + 1] = 'version=' + ver
 open(vf, 'w', encoding='utf-8').write('\n'.join(src))
@@ -158,15 +200,14 @@ PY
 grep -q "^version=$NEW\$" "$VF" || die "内部错误:version.properties 没写对"
 ok "version.properties → $NEW"
 
-# ── CHANGELOG:按 Conventional Commits 分组插到最上面 ────────────────────────
+# CHANGELOG:按 Conventional Commits 分组插到最上面
 printf '%s\n' "${LOG[@]}" | python3 - "$CLE" "$NEW" "$TODAY" "${LAST:-}" "$TAG" "$SLUG" <<'PY' || die "写 CHANGELOG 失败"
 import sys
 cle, ver, today, last, tag, slug = sys.argv[1:7]
 commit_lines = [l.strip() for l in sys.stdin if l.strip()]
 
 GROUPS = [('breaking', '不兼容变更'), ('feat', '新增'), ('fix', '修复'), ('other', '其他')]
-def kind(subj):
-    s = subj.split(' ', 1)[1] if ' ' in subj else ''
+def kind(s):
     if '!:' in s:
         return 'breaking'
     head = s.split(':', 1)[0]
@@ -176,7 +217,6 @@ def kind(subj):
         return 'fix'
     return 'other'
 
-import re
 bucket = {k: [] for k, _ in GROUPS}
 for line in commit_lines:
     sha, _, subj = line.partition(' ')
@@ -209,20 +249,20 @@ open(cle, 'w', encoding='utf-8').write(out)
 PY
 ok "CHANGELOG.md 已插入 $NEW"
 
-# ── 提交 + tag + 推 ──────────────────────────────────────────────────────
 git -C "$REPO" add "$VF" "$CLE" || die "git add 失败"
 git -C "$REPO" commit -q -m "release: prepare $NEW" || die "git commit 失败"
-ok "已提交 release: prepare $NEW"
-git -C "$REPO" push 2>&1 | tail -2 | sed 's/^/     /'
 
-git -C "$REPO" tag -a "$TAG" -m "$NEW
-
-OrzMusic Android 客户端。
-版本号来源: clients/android/version.properties" || die "打 tag 失败"
-git -C "$REPO" push origin "refs/tags/$TAG" || die "推送 tag 失败"
-ok "已推送 $TAG"
+if ! push_out="$(git -C "$REPO" push -u origin "$BRANCH" 2>&1)"; then
+  printf '%s\n' "$push_out" | tail -5 | sed 's/^/     /'
+  die "推送分支失败(本次改动已提交在本地 $BRANCH)"
+fi
+ok "已推送分支 $BRANCH"
 
 echo
-echo "════════ 完成 ════════"
-echo "  $CUR → $NEW"
-echo "  CI 会构建签名 APK/AAB 并建 Release: https://github.com/$SLUG/actions"
+echo "════════ 下一步 ════════"
+echo "  1) 开 PR 并合并(rebase merge,保留提交信息):"
+echo "       gh pr create --repo $SLUG --base main --head $BRANCH \\"
+echo "          --title 'release: prepare $NEW' --body 'Android 客户端 $NEW'"
+echo "  2) 合并后回到 main 拉一次,再打 tag:"
+echo "       git checkout main && git pull"
+echo "       bash clients/android/scripts/android-release.sh --tag"
