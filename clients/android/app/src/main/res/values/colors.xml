@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 品牌底色,与 Resources/Public/brand/orz-logo.svg 的 rect fill 一致。
+         前景是暖白圆环 + 薄荷五柱(ic_launcher_foreground.xml)。 -->
+    <color name="ic_launcher_background">#0B0D0C</color>
+</resources>

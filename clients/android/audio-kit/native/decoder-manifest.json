@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "sdkVersion": "1.2.4",
+  "abiVersion": "1.0",
+  "formats": [
+    {"id":"xm","name":"XM","decoder":"openmpt","version":"0.8.0","category":"module","profiles":["full","server"],"seek":true,"subsong":true},
+    {"id":"mod","name":"MOD","decoder":"openmpt","version":"0.8.0","category":"module","profiles":["full","server"],"seek":true,"subsong":true},
+    {"id":"it","name":"IT","decoder":"openmpt","version":"0.8.0","category":"module","profiles":["full","server"],"seek":true,"subsong":true},
+    {"id":"s3m","name":"S3M","decoder":"openmpt","version":"0.8.0","category":"module","profiles":["full","server"],"seek":true,"subsong":true},
+    {"id":"mo3","name":"MO3","decoder":"openmpt","version":"0.8.0","category":"module","profiles":["full","server"],"seek":true,"subsong":true},
+    {"id":"mtm","name":"MTM","decoder":"openmpt","version":"0.8.0","category":"module","profiles":["full","server"],"seek":true,"subsong":true},
+    {"id":"fc13","name":"FC 1.3","decoder":"openmpt","version":"0.8.0","category":"module","profiles":["full","server"],"seek":true,"subsong":true},
+    {"id":"fc14","name":"FC 1.4","decoder":"openmpt","version":"0.8.0","category":"module","profiles":["full","server"],"seek":true,"subsong":true},
+    {"id":"nsf","name":"NSF","decoder":"gme","version":"0.6.3","category":"console","profiles":["full","server"]},
+    {"id":"spc","name":"SPC","decoder":"gme","version":"0.6.3","category":"console","profiles":["full","server"]},
+    {"id":"sid","name":"SID","decoder":"sidplayfp","version":"3.0.2","category":"console","profiles":["full","server"],"durationPolicy":"180s"},
+    {"id":"sc68","name":"SC68","decoder":"sc68","version":"embedded","category":"console","profiles":["full","server"]},
+    {"id":"ym","name":"YM","decoder":"ym6","version":"1","category":"console","profiles":["builtin-lite","full","server"]},
+    {"id":"sap","name":"SAP","decoder":"asap","version":"embedded","category":"console","profiles":["full","server"]},
+    {"id":"ahx","name":"AHX","decoder":"ahx2play","version":"embedded","category":"console","profiles":["full","server"]},
+    {"id":"thx","name":"THX","decoder":"ahx2play","version":"embedded","category":"console","profiles":["full","server"]},
+    {"id":"mid","name":"MIDI","decoder":"midi","version":"1","category":"synth","profiles":["builtin-lite","full","server"]},
+    {"id":"v2m","name":"V2M","decoder":"v2m","version":"embedded","category":"synth","profiles":["full","server"]},
+    {"id":"bp","name":"SoundMon BP","decoder":"soundmon","version":"2","category":"synth","profiles":["builtin-lite","full","server"]},
+    {"id":"rad","name":"RAD","decoder":"adplug","version":"2.4","category":"synth","profiles":["full","server"]},
+    {"id":"d00","name":"D00","decoder":"adplug","version":"2.4","category":"synth","profiles":["full","server"]},
+    {"id":"hsc","name":"HSC","decoder":"adplug","version":"2.4","category":"synth","profiles":["full","server"]},
+    {"id":"amd","name":"AMD","decoder":"adplug","version":"2.4","category":"synth","profiles":["full","server"]}
+  ]
+}

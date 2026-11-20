@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  启动图标前景 —— 派生自服务端品牌母版 Resources/Public/brand/orz-logo.svg:
+  暖白圆环(r=25 / stroke=8,64 单位画布)+ 薄荷五柱(2:1 圆头柱)。
+
+  按 108dp 画布等比缩放(k = 1.13793),并把外沿收进 66dp 安全区:
+    环 r=28.448,stroke=9.103(外沿 33.0)
+    柱宽 4.552,rx 2.276
+
+  背景色在 values/colors.xml 的 ic_launcher_background(#0B0D0C,与品牌底色一致)。
+  改品牌时同步 orz-logo.svg 的几何与本文件,并重跑 scripts/sync-brand-assets.sh。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#F4F2EA"
+        android:strokeWidth="9.103"
+        android:pathData="M25.552,54.000 A28.448,28.448 0 1 1 82.448,54.000 A28.448,28.448 0 1 1 25.552,54.000 Z" />
+    <path
+        android:fillColor="#39E58C"
+        android:pathData="M35.793,51.724 A2.276,2.276 0 0 1 40.345,51.724 L40.345,56.276 A2.276,2.276 0 0 1 35.793,56.276 Z" />
+    <path
+        android:fillColor="#39E58C"
+        android:pathData="M43.759,47.172 A2.276,2.276 0 0 1 48.310,47.172 L48.310,60.828 A2.276,2.276 0 0 1 43.759,60.828 Z" />
+    <path
+        android:fillColor="#39E58C"
+        android:pathData="M51.724,42.621 A2.276,2.276 0 0 1 56.276,42.621 L56.276,65.379 A2.276,2.276 0 0 1 51.724,65.379 Z" />
+    <path
+        android:fillColor="#39E58C"
+        android:pathData="M59.690,47.172 A2.276,2.276 0 0 1 64.241,47.172 L64.241,60.828 A2.276,2.276 0 0 1 59.690,60.828 Z" />
+    <path
+        android:fillColor="#39E58C"
+        android:pathData="M67.655,51.724 A2.276,2.276 0 0 1 72.207,51.724 L72.207,56.276 A2.276,2.276 0 0 1 67.655,56.276 Z" />
+</vector>

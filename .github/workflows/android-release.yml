@@ -1,0 +1,116 @@
+name: Android Release
+
+# 客户端用自己的 tag 命名空间 android-vX.Y.Z:
+#   · 根目录的 vX.Y.Z 是**服务端**版本,release.yml 会拿 VERSION 文件硬校验;
+#   · 客户端版本在 clients/android/version.properties,两条线独立推进。
+#
+# 推 android-v* 时:校验 tag == version.properties → 用 secrets 还原签名凭据 →
+# 构建签名 APK/AAB → 比对 signing-manifest.txt 的指纹 → 建 Release。
+on:
+  push:
+    tags:
+      - "android-v[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: 版本
+        id: meta
+        run: echo "ver=${GITHUB_REF_NAME#android-v}" >> "$GITHUB_OUTPUT"
+
+      - name: 校验 tag 与 version.properties 一致
+        run: |
+          set -euo pipefail
+          VER="${GITHUB_REF_NAME#android-v}"
+          FVER="$(sed -n 's/^version[[:space:]]*=[[:space:]]*//p' clients/android/version.properties | tr -d '[:space:]')"
+          echo "tag=$VER  version.properties=$FVER"
+          [ "$VER" = "$FVER" ] || { echo "tag 与 version.properties 不一致,拒绝发版"; exit 1; }
+
+      # 密钥与密码只来自 secrets。keystore.properties 与 *.jks 都在 .gitignore 里,
+      # 不允许入库(见 clients/android/signing-manifest.txt 的说明)。
+      - name: 还原签名凭据
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          [ -n "${KEYSTORE_BASE64}" ] || { echo "缺少 secret ANDROID_KEYSTORE_BASE64"; exit 1; }
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > clients/android/release.jks
+          cat > clients/android/keystore.properties <<EOF
+          storeFile=release.jks
+          storePassword=${STORE_PASSWORD}
+          alias.OrzMusic=${KEY_ALIAS}
+          keyPassword=${KEY_PASSWORD}
+          EOF
+          chmod 600 clients/android/keystore.properties clients/android/release.jks
+
+      - name: 构建 release APK 与 AAB
+        run: |
+          cd clients/android
+          ./gradlew --no-daemon --console=plain --max-workers=2 \
+            :app:assembleRelease :app:bundleRelease
+
+      - name: 校验产物(版本 / 非 debuggable / 签名指纹)
+        run: |
+          set -euo pipefail
+          cd clients/android
+          VER="${GITHUB_REF_NAME#android-v}"
+          BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          APK=app/build/outputs/apk/release/app-release.apk
+          [ -f "$APK" ] || { echo "没有 APK 产物"; exit 1; }
+
+          BADGING="$("$BT/aapt2" dump badging "$APK")"
+          echo "$BADGING" | grep -m1 '^package:' | sed 's/^/  /'
+          echo "$BADGING" | grep -q "versionName='$VER'" || { echo "versionName 不是 $VER"; exit 1; }
+          if echo "$BADGING" | grep -q 'application-debuggable'; then
+            echo "APK 是 debuggable 的 —— 不是正式包"; exit 1
+          fi
+
+          EXPECTED="$(sed -n 's/^alias\.OrzMusic=//p' signing-manifest.txt | tr -d '[:space:]')"
+          GOT="$("$BT/apksigner" verify --print-certs "$APK" | awk -F': *' '/SHA-256 digest/{print $NF; exit}')"
+          echo "  证书指纹 $GOT"
+          echo "  期望指纹 $EXPECTED"
+          [ -n "$EXPECTED" ] && [ "$GOT" = "$EXPECTED" ] \
+            || { echo "签名指纹与 signing-manifest.txt 不一致"; exit 1; }
+
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          cp "$APK" "$GITHUB_WORKSPACE/dist/OrzMusic-android-$VER.apk"
+          cp app/build/outputs/bundle/release/app-release.aab \
+             "$GITHUB_WORKSPACE/dist/OrzMusic-android-$VER.aab"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: OrzMusic Android ${{ github.ref_name }}
+          body: |
+            ## OrzMusic Android ${{ github.ref_name }}
+
+            ### 制品
+            - `OrzMusic-android-${{ steps.meta.outputs.ver }}.apk` —— 侧载 / 国内商店
+            - `OrzMusic-android-${{ steps.meta.outputs.ver }}.aab` —— Google Play 上传
+
+            Git Commit: `${{ github.sha }}`
+
+            > applicationId `com.jokerhub.orzmusic.android` 与签名密钥自首次发布起不再变更,
+            > 指纹见 `clients/android/signing-manifest.txt`。
+          files: |
+            dist/OrzMusic-android-*.apk
+            dist/OrzMusic-android-*.aab
+          draft: false
+          prerelease: false
+          generate_release_notes: true

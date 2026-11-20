@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  debug 构建专属的清单,会被合并进主清单。
+
+  里面两个组件是「应用自截图」钩子(docs/07-debug-ui-capture.md):
+
+  1. DebugHooksInitProvider —— 借 ContentProvider 的初始化时机拿到 Application,
+     注册 Activity 生命周期回调。这样业务代码完全不用改。
+  2. UiDumpReceiver —— 接收 adb 广播,把当前 Activity 的 View 层级画成 PNG。
+
+  ⚠️ 两个都只在 debug 构建里存在,release 包不含这些代码,也不含这些声明。
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+
+        <provider
+            android:name=".debug.DebugHooksInitProvider"
+            android:authorities="${applicationId}.debug-hooks"
+            android:exported="false"
+            android:initOrder="1000" />
+
+        <!-- exported 是必须的:shell(uid 2000)是另一个 uid。
+             因为是 debug-only,不会随正式包发布出去。 -->
+        <receiver
+            android:name=".debug.UiDumpReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="${applicationId}.DUMP_UI" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 输入法探针:判断实体键盘的按键会不会被交给 IME。
+             独立 Activity,不污染 DeviceInspector 的 D-pad 焦点演示。
+             启动:adb shell am start -n <applicationId>/.debug.ImeProbeActivity -->
+        <activity
+            android:name=".debug.ImeProbeActivity"
+            android:exported="true"
+            android:label="IME 探针"
+            android:windowSoftInputMode="adjustResize" />
+
+    </application>
+</manifest>

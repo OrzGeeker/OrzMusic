@@ -1,0 +1,19 @@
+{
+  "profile": "android-openmpt-builtin",
+  "sdk": "OrzAudioCore 1.2.4",
+  "libopenmpt": "0.8.0",
+  "cacheNamespace": "orzaudio-1.2.4-libopenmpt-0.8.0",
+  "formats": [
+    {"id": "xm", "label": "XM", "group": "modules"},
+    {"id": "mod", "label": "MOD", "group": "modules"},
+    {"id": "it", "label": "IT", "group": "modules"},
+    {"id": "s3m", "label": "S3M", "group": "modules"},
+    {"id": "mo3", "label": "MO3", "group": "modules"},
+    {"id": "mtm", "label": "MTM", "group": "modules"},
+    {"id": "fc13", "label": "FC 1.3", "group": "modules"},
+    {"id": "fc14", "label": "FC 1.4", "group": "modules"},
+    {"id": "ym", "label": "YM", "group": "retro"},
+    {"id": "mid", "label": "MIDI", "group": "synth"},
+    {"id": "bp", "label": "SoundMon BP", "group": "synth"}
+  ]
+}

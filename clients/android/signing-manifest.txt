@@ -1,0 +1,18 @@
+# 签名期望值 —— 这个文件**可以**入库,和 keystore.properties 不是一回事。
+#
+# 里面只有别名和证书 SHA-256 指纹。指纹是公钥的哈希,**不是秘密**:
+# 公开它,别人既反推不出私钥,也签不出能被安装的包。
+#
+# 用途:发版前自检「手里这把是不是发布用的那把」。发布流程会拿产物证书指纹
+# 和这里的值比对,不一致就失败 —— 别等到用户报
+# INSTALL_FAILED_UPDATE_INCOMPATIBLE 才发现。
+#
+# ⚠️ 凭据本体(release.jks + 密码)绝对不能入库。CI 从仓库 secrets 还原,
+#    本地从密码管理器/凭据包取。指纹格式:小写无冒号(与 apksigner 一致)。
+#
+# 自检:
+#   apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk
+#
+# ⚠️ 已上架后**不能换**钥匙,也不能改 applicationId —— 都等于换应用。
+
+alias.OrzMusic=d8121929888ba76e5aaec6772772eae95dcd354920e0f4273d83f1940a0e8807
