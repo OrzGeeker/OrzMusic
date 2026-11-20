@@ -258,6 +258,19 @@ git checkout main && git pull
 bash scripts/android-release.sh --tag
 ```
 
+### CI 里的分工(2026-11-20 起)
+
+tag 推上去之后由两个 job 完成,签名与校验逻辑**不再写在本仓库**:
+
+| 阶段 | 谁做 | 做什么 |
+|---|---|---|
+| 构建 | 本仓库 | `./gradlew :app:assembleRelease :app:bundleRelease` |
+| 密钥还原 / 校验 / manifest | [EasyRelease](https://github.com/EasyIndie/EasyRelease) 的 `android-v0.1.0` | base64 → `release.jks` + `keystore.properties`;校验包名 / 版本 / 非 debuggable / `UiDumpReceiver` / ABI / `targetSdk ≥ 36` / 签名指纹 / AAB 结构与 jarsigner;产出 `android-manifest.json` |
+| Release 资产与正文 | 本仓库 `publish` job | 重命名成 `OrzMusic-android-<version>.{apk,aab}` 并发 Release |
+
+升级校验规则(比如商店抬高了 targetSdk 门槛)改 EasyRelease 一处,所有仓库一起生效;
+本仓库只用 `android-release.yml` 里的 `uses: ...@android-v0.1.0` 一行控制版本。
+
 人工资料清单见 [`store/play.md`](store/play.md) / [`store/cn.md`](store/cn.md)。
 通用流程(签名策略、上架材料、设备操作)在
 [EasyIndie/EasyAndroid](https://github.com/EasyIndie/EasyAndroid) 的 `docs/06` / `docs/11`。
