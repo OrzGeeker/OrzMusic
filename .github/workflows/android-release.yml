@@ -53,7 +53,14 @@ jobs:
       min_target_sdk: "36"
       upload_artifact: true
       release: false
-    secrets: inherit
+    # 显式映射,不用 `secrets: inherit` —— 本仓库(OrzGeeker)与 EasyRelease
+    # (EasyIndie)不在同一个 owner 下,实测 inherit 传过去是空的:构建因此拿不到
+    # keystore,静默产出未签名包(app-release-unsigned.apk)。
+    secrets:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
 
   publish:
     needs: verify
