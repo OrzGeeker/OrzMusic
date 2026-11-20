@@ -76,10 +76,15 @@ jobs:
           name: easyrelease-OrzMusic-Android
           path: dist/flat
 
+      - name: 解析版本
+        id: meta
+        run: echo "ver=${GITHUB_REF_NAME#android-v}" >> "$GITHUB_OUTPUT"
+
       - name: 重命名(仓库自己的命名约定)
+        env:
+          VER: ${{ steps.meta.outputs.ver }}
         run: |
           set -euo pipefail
-          VER="${GITHUB_REF_NAME#android-v}"
           mkdir -p dist
           cp dist/flat/app-release.apk "dist/OrzMusic-android-$VER.apk"
           cp dist/flat/app-release.aab "dist/OrzMusic-android-$VER.aab"
@@ -88,13 +93,13 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          name: OrzMusic Android ${{ github.ref_name }}
+          name: OrzMusic Android ${{ steps.meta.outputs.ver }}
           body: |
-            ## OrzMusic Android ${{ github.ref_name }}
+            ## OrzMusic Android ${{ steps.meta.outputs.ver }}
 
             ### 制品
-            - `OrzMusic-android-${{ github.ref_name }}.apk` —— 侧载 / 国内商店
-            - `OrzMusic-android-${{ github.ref_name }}.aab` —— Google Play 上传
+            - `OrzMusic-android-${{ steps.meta.outputs.ver }}.apk` —— 侧载 / 国内商店
+            - `OrzMusic-android-${{ steps.meta.outputs.ver }}.aab` —— Google Play 上传
 
             版本校验 / 签名指纹 / AAB 结构由
             [EasyIndie/EasyRelease](https://github.com/EasyIndie/EasyRelease) 的
