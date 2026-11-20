@@ -60,6 +60,11 @@ help:
 	@echo "  make release-scan       Scan production music dir (ADMIN_API_TOKEN=...)"
 	@echo "  make scan-docker-run Trigger configured Docker scan root (ADMIN_API_TOKEN=...)"
 	@echo ""
+	@echo "Android client:"
+	@echo "  make android-build  Build the Android debug APK (clients/android)"
+	@echo "  make android-test   Run core/unit tests + JVM screenshot assertions"
+	@echo "  make android-release Release the Android client (android-v* tag; VERSION=x.y.z optional)"
+	@echo ""
 	@echo "Cleanup:"
 	@echo "  make clean          Remove local Swift build artifacts"
 
@@ -268,6 +273,18 @@ release-rollback:
 .PHONY: package-deploy
 package-deploy:
 	./script/package-deploy.sh
+
+.PHONY: android-build android-test android-release
+android-build:
+	cd clients/android && ./gradlew --no-daemon --console=plain :app:assembleDebug
+
+android-test:
+	cd clients/android && ./gradlew --no-daemon --console=plain \
+		:core:test :app:testDebugUnitTest -Proborazzi.test.record=false
+
+# 发版只做一件事:调用客户端自己的脚本(版本推导 / CHANGELOG / tag / push 都在那里)
+android-release:
+	cd clients/android && bash scripts/android-release.sh $(if $(VERSION),--version $(VERSION),)
 
 .PHONY: release-scan
 release-scan:

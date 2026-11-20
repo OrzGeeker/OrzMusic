@@ -25,3 +25,20 @@ dist/
 # Runtime CAS library and decoded WAV cache are local data, never source.
 /data/music/
 /music/
+
+# ---- Android 客户端(clients/android)----
+.gradle/
+.kotlin/
+build/
+local.properties
+.cxx/
+.externalNativeBuild/
+captures/
+*.iml
+*.apk
+*.aab
+*.hprof
+# 签名密钥绝对不能入库(见 clients/android/signing-manifest.txt 的说明)
+keystore.properties
+*.jks
+*.keystore
