@@ -201,10 +201,16 @@ grep -q "^version=$NEW\$" "$VF" || die "内部错误:version.properties 没写�
 ok "version.properties → $NEW"
 
 # CHANGELOG:按 Conventional Commits 分组插到最上面
-printf '%s\n' "${LOG[@]}" | python3 - "$CLE" "$NEW" "$TODAY" "${LAST:-}" "$TAG" "$SLUG" <<'PY' || die "写 CHANGELOG 失败"
+#
+# ⚠️ 提交列表要**写进文件**再传给 python,不能 `printf | python3 - <<'PY'`:
+#    用 `python3 -` 时程序本身来自 stdin,管道会被 heredoc 覆盖 ——
+#    结果就是条目只有标题没有内容(实测 0.7.0 第一次生成时踩到)。
+CMFILE="$(mktemp)"
+printf '%s\n' "${LOG[@]}" > "$CMFILE"
+python3 - "$CMFILE" "$CLE" "$NEW" "$TODAY" "${LAST:-}" "$TAG" "$SLUG" <<'PY' || die "写 CHANGELOG 失败"
 import sys
-cle, ver, today, last, tag, slug = sys.argv[1:7]
-commit_lines = [l.strip() for l in sys.stdin if l.strip()]
+cmfile, cle, ver, today, last, tag, slug = sys.argv[1:8]
+commit_lines = [l.strip() for l in open(cmfile, encoding='utf-8') if l.strip()]
 
 GROUPS = [('breaking', '不兼容变更'), ('feat', '新增'), ('fix', '修复'), ('other', '其他')]
 def kind(s):
@@ -224,8 +230,9 @@ for line in commit_lines:
         continue
     bucket[kind(subj)].append('- %s ([%s](https://github.com/%s/commit/%s))' % (subj, sha, slug, sha))
 
-base = last or 'android-v0.0.0'
-lines = ['## [%s](https://github.com/%s/compare/%s...%s) - %s' % (ver, slug, base, tag, today), '']
+# 首次发版没有上一个 tag,不拼 compare 链接(否则指向不存在的 android-v0.0.0)
+lines = ['## [%s](https://github.com/%s/compare/%s...%s) - %s' % (ver, slug, last, tag, today)
+         if last else '## [%s] - %s' % (ver, today), '']
 for key, label in GROUPS:
     if bucket[key]:
         lines += ['### %s' % label, ''] + bucket[key] + ['']
@@ -247,6 +254,7 @@ else:
     out = (old.rstrip() + '\n\n' + entry) if i < 0 else (old[:i + 1] + entry + old[i + 1:])
 open(cle, 'w', encoding='utf-8').write(out)
 PY
+rm -f "$CMFILE"
 ok "CHANGELOG.md 已插入 $NEW"
 
 git -C "$REPO" add "$VF" "$CLE" || die "git add 失败"
