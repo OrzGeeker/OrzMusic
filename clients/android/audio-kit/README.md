@@ -138,3 +138,28 @@ OrzAudioCore/
 
 > 目前只剩「搬进 OrzAudioCore + 打包/CI + 消费坐标」;
 > JNI 边界、流式 API、manifest 生成、AAR 发布都已就位。
+
+## 为什么 `.so` 还提交在本仓库(2026-11-20 核实)
+
+`.so` 应该像服务端 / Web 那样按 `audio-core-sdk.lock.json` 拉取,但现在**拉不到**:
+
+```
+OrzAudioCore v1.2.4 的 Release 资产:
+  OrzAudioCore-1.2.4-builtin-lite.tar.gz
+  OrzAudioCore-1.2.4-linux-{x86_64,arm64}.tar.gz
+  OrzAudioCore-1.2.4-macos-arm64.tar.gz
+  OrzAudioCore.xcframework.zip
+  orzmusic-audio-core-1.2.4.tgz          ← Web/WASM
+  (没有 android / aar 资产)
+```
+
+也就是说上面「迁移到 OrzAudioCore」的第 1、4、5 步还没做,
+Android 侧没有可锁定的发布物。所以:
+
+- `src/main/jniLibs/{arm64-v8a,armeabi-v7a}/liborzaudio.so` **继续入库**(约 4.9 MB),
+  保证 `git clone` 后不装 NDK 就能构建;
+- 依赖版本仍以 `native/decoder-profile.json` + 本文档记录(OrzAudioCore 1.2.4 /
+  libopenmpt 0.8.0 / NDK 27);
+- 解锁条件:OrzAudioCore 发布 AAR + sha256 后,再加
+  `clients/android/audio-core-sdk.lock.json` 与 `scripts/update-audio-core-android.sh`,
+  并把 `api(project(":audio-kit"))` 换成 Maven 坐标。

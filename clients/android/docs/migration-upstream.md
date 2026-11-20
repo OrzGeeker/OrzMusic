@@ -278,7 +278,7 @@ bash EasyAndroid/tools/ui-dump.sh com.jokerhub.orzmusic.android
 |---|---|---|
 | 目录 `script/` | `scripts/` | 客户端原本就有 `scripts/gen-core-manifest.py`,不另起一个近似名字 |
 | 单提交导入 | ✅ 单提交 | 提交信息注明来源 `EasyIndie/EasyAndroid@<sha>`,历史仍公开可查 |
-| `audio-kit` 的 `.so` 转为按锁文件下载 | 暂缓,继续入库 | 先保证 `git clone` 后离线可构建;JNI 层上移 OrzAudioCore 后一起改 |
+| `audio-kit` 的 `.so` 转为按锁文件下载 | 暂缓,继续入库 | **上游没有 Android 产物**:OrzAudioCore v1.2.4 只发 linux/macos/xcframework/web,所以没有可锁定的 AAR。证据与解锁条件记在 [audio-kit/README.md](../audio-kit/README.md#为什么-so-还提交在本仓库2026-11-20-核实) |
 | `scripts/store-preflight.sh` 移植 **瘦版** | `scripts/store-check.sh` | 只查包名 / 版本 / 签名指纹 / ABI / 非 debuggable / AAB 结构 / 人工 TODO |
 | `publish.properties` 保留 `github` 渠道 | 改成 `targets=play,cn` | GitHub Release 由 `android-v*` 工作流产出,不走渠道配置 |
 | 品牌图标「从 SVG 派生」 | ✅ 矢量按几何换算 + 512 图标直接拷贝 | 单一来源是 `Resources/Public/brand/`;`scripts/sync-brand-assets.sh` 一条命令同步 |

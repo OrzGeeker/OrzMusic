@@ -11,6 +11,9 @@
 #   bash scripts/store-check.sh --target play
 #   bash scripts/store-check.sh --target cn      # 国内商店
 #   bash scripts/store-check.sh --version 0.7.0  # 覆盖版本号(默认读 version.properties)
+#   bash scripts/store-check.sh --apk x.apk --aab y.aab
+#                                                # 检查**已发布的产物**(而不是本地
+#                                                # app/build/outputs/ 下刚构建的那份)
 #
 # 依赖:Android SDK build-tools(aapt2 / apksigner)、jarsigner、unzip。
 # 平台:Linux / macOS / WSL2。Windows 原生 Git Bash 下 apksigner 是 .bat,
@@ -26,11 +29,13 @@ ok(){   printf '  ✅ %s\n' "$1"; PASS=$((PASS+1)); }
 bad(){  printf '  ❌ %s\n' "$1"; FAIL=$((FAIL+1)); }
 warn(){ printf '  ⚠️  %s\n' "$1"; WARN=$((WARN+1)); }
 
-TARGET="play"; VER=""
+TARGET="play"; VER=""; APK_OVERRIDE=""; AAB_OVERRIDE=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --target) shift; TARGET="${1:-}";;
     --version) shift; VER="${1:-}";;
+    --apk) shift; APK_OVERRIDE="${1:-}";;
+    --aab) shift; AAB_OVERRIDE="${1:-}";;
     -h|--help) sed -n '3,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0;;
     *) die "未知参数: $1";
   esac
@@ -80,9 +85,9 @@ AAPT2="$BT/aapt2"; APKSIGNER="$BT/apksigner"
 command -v unzip >/dev/null 2>&1 || die "找不到 unzip(读 APK/AAB 内容需要它)"
 JARSIGNER="$(command -v jarsigner || true)"
 
-APK="$CLIENT/app/build/outputs/apk/release/app-release.apk"
-[ -f "$APK" ] || APK="$CLIENT/app/build/outputs/apk/release/app-release-signed.apk"
-AAB="$CLIENT/app/build/outputs/bundle/release/app-release.aab"
+APK="${APK_OVERRIDE:-$CLIENT/app/build/outputs/apk/release/app-release.apk}"
+[ -n "$APK_OVERRIDE" ] || { [ -f "$APK" ] || APK="$CLIENT/app/build/outputs/apk/release/app-release-signed.apk"; }
+AAB="${AAB_OVERRIDE:-$CLIENT/app/build/outputs/bundle/release/app-release.aab}"
 
 echo "════════ OrzMusic Android · $VER (versionCode $WANT_CODE)· target=$TARGET ════════"
 
