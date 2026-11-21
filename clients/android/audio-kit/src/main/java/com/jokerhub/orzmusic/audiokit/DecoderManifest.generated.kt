@@ -13,10 +13,10 @@ package com.jokerhub.orzmusic.audiokit
  */
 object DecoderManifest {
 
-    const val PROFILE = "android-openmpt-builtin"
+    const val PROFILE = "android-full"
     const val SDK_VERSION = "1.2.4"
     const val LIBOPENMPT_VERSION = "0.8.0"
-    const val CACHE_NAMESPACE = "orzaudio-1.2.4-libopenmpt-0.8.0"
+    const val CACHE_NAMESPACE = "orzaudio-1.2.4-full"
 
     val formats: List<DecoderFormatInfo> = listOf(
         DecoderFormatInfo("xm", "XM", "openmpt", "0.8.0", "module", true, true),
@@ -27,9 +27,21 @@ object DecoderManifest {
         DecoderFormatInfo("mtm", "MTM", "openmpt", "0.8.0", "module", true, true),
         DecoderFormatInfo("fc13", "FC 1.3", "openmpt", "0.8.0", "module", true, true),
         DecoderFormatInfo("fc14", "FC 1.4", "openmpt", "0.8.0", "module", true, true),
+        DecoderFormatInfo("nsf", "NSF", "gme", "0.6.3", "console", false, false),
+        DecoderFormatInfo("spc", "SPC", "gme", "0.6.3", "console", false, false),
+        DecoderFormatInfo("sid", "SID", "sidplayfp", "3.0.2", "console", false, false),
+        DecoderFormatInfo("sc68", "SC68", "sc68", "embedded", "console", false, false),
         DecoderFormatInfo("ym", "YM", "ym6", "1", "console", false, false),
+        DecoderFormatInfo("sap", "SAP", "asap", "embedded", "console", false, false),
+        DecoderFormatInfo("ahx", "AHX", "ahx2play", "embedded", "console", false, false),
+        DecoderFormatInfo("thx", "THX", "ahx2play", "embedded", "console", false, false),
         DecoderFormatInfo("mid", "MIDI", "midi", "1", "synth", false, false),
+        DecoderFormatInfo("v2m", "V2M", "v2m", "embedded", "synth", false, false),
         DecoderFormatInfo("bp", "SoundMon BP", "soundmon", "2", "synth", false, false),
+        DecoderFormatInfo("rad", "RAD", "adplug", "2.4", "synth", false, false),
+        DecoderFormatInfo("d00", "D00", "adplug", "2.4", "synth", false, false),
+        DecoderFormatInfo("hsc", "HSC", "adplug", "2.4", "synth", false, false),
+        DecoderFormatInfo("amd", "AMD", "adplug", "2.4", "synth", false, false),
     )
 
     val supportedIds: Set<String> = formats.map { it.id }.toSet()

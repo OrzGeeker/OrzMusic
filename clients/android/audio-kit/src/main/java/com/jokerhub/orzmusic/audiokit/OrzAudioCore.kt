@@ -73,10 +73,27 @@ object OrzAudioCore {
         }.getOrDefault(fallback)
     }
 
-    /** 当前 profile 编进来的格式(生成物,不手写)。 */
-    val supportedFormats: List<DecoderFormatInfo> get() = DecoderManifest.formats
+    /**
+     * 本机 `.so` 真的编进来的格式 id(运行时真相)。
+     *
+     * 与 [DecoderManifest] 的区别:清单是「这个 SDK 版本提供哪些格式」,
+     * 这里是「当前二进制能解哪些」—— 注册表用弱符号存根过滤缺失解码器。
+     * 两者取交集才是可用能力,所以清单先行、二进制后到也不会播错。
+     */
+    val nativeFormats: Set<String> by lazy {
+        if (!isAvailable) return@lazy emptySet<String>()
+        val probed = runCatching {
+            nativeFormatIds()?.filterNotNull()?.map { it.lowercase() }?.toSet()
+        }.getOrNull()
+        // 探测失败/空 → 退回清单。一次坏的 JNI 绑定不应该把整个原生播放路径判死。
+        if (probed.isNullOrEmpty()) DecoderManifest.supportedIds else probed
+    }
 
-    fun supports(format: String): Boolean = DecoderManifest.supports(format)
+    /** 清单 ∩ 运行时 —— 真正可用的格式(生成物,不手写)。 */
+    val supportedFormats: List<DecoderFormatInfo>
+        get() = DecoderManifest.formats.filter { it.id in nativeFormats }
+
+    fun supports(format: String): Boolean = format.lowercase() in nativeFormats
 
     fun probe(data: ByteArray, extensionHint: String? = null): ProbeResult? {
         if (!isAvailable || data.size < 32) return null
@@ -132,8 +149,10 @@ object OrzAudioCore {
     external fun nativeRenderF32(handle: Long, out: FloatArray, frames: Int): Int
     external fun nativeSeek(handle: Long, positionMs: Long): Int
     external fun nativeSelectSubsong(handle: Long, subsong: Int): Int
+    external fun nativeCancel(handle: Long): Int
     external fun nativeDestroy(handle: Long)
     external fun nativeProbe(data: ByteArray, extensionHint: String?): String?
+    external fun nativeFormatIds(): Array<String?>?
     external fun nativeAbiVersion(): Int
     external fun nativeBuildInfo(): String
 }
@@ -186,6 +205,15 @@ class AudioDecoder internal constructor(private var handle: Long) : Closeable {
     fun selectSubsong(index: Int): Boolean {
         if (handle == 0L || index < 0) return false
         return OrzAudioCore.nativeSelectSubsong(handle, index) == 0
+    }
+
+    /**
+     * 打断正在进行的 [renderF32]（从其它线程调用）。
+     * 流式播放关闭时用它让解码线程尽快退出，再销毁句柄。
+     */
+    fun cancel() {
+        val current = handle
+        if (current != 0L) OrzAudioCore.nativeCancel(current)
     }
 
     override fun close() {

@@ -15,9 +15,9 @@ data class DecoderFormat(
     val group: String
 )
 
-object DecoderManifest {
+object DecoderManifest : DecoderManifestSource {
 
-    const val PROFILE = "android-openmpt-builtin"
+    const val PROFILE = "android-full"
     const val SDK_VERSION = "OrzAudioCore 1.2.4"
     const val LIBOPENMPT_VERSION = "0.8.0"
 
@@ -26,9 +26,9 @@ object DecoderManifest {
      * 升级 OrzAudioCore / libopenmpt 后,旧 WAV 自动失效 ——
      * 与服务端把 `orz_build_info()` fingerprint 写进 PCM 缓存键是同一口径。
      */
-    const val CACHE_NAMESPACE = "orzaudio-1.2.4-libopenmpt-0.8.0"
+    const val CACHE_NAMESPACE = "orzaudio-1.2.4-full"
 
-    val formats: List<DecoderFormat> = listOf(
+    override val formats: List<DecoderFormat> = listOf(
         DecoderFormat("xm", "XM", "modules"),
         DecoderFormat("mod", "MOD", "modules"),
         DecoderFormat("it", "IT", "modules"),
@@ -37,14 +37,26 @@ object DecoderManifest {
         DecoderFormat("mtm", "MTM", "modules"),
         DecoderFormat("fc13", "FC 1.3", "modules"),
         DecoderFormat("fc14", "FC 1.4", "modules"),
+        DecoderFormat("nsf", "NSF", "retro"),
+        DecoderFormat("spc", "SPC", "retro"),
+        DecoderFormat("sid", "SID", "retro"),
+        DecoderFormat("sc68", "SC68", "retro"),
         DecoderFormat("ym", "YM", "retro"),
+        DecoderFormat("sap", "SAP", "retro"),
+        DecoderFormat("ahx", "AHX", "retro"),
+        DecoderFormat("thx", "THX", "retro"),
         DecoderFormat("mid", "MIDI", "synth"),
+        DecoderFormat("v2m", "V2M", "synth"),
         DecoderFormat("bp", "SoundMon BP", "synth"),
+        DecoderFormat("rad", "RAD", "synth"),
+        DecoderFormat("d00", "D00", "synth"),
+        DecoderFormat("hsc", "HSC", "synth"),
+        DecoderFormat("amd", "AMD", "synth"),
     )
     val supportedIds: Set<String> = formats.map { it.id }.toSet()
 
-    fun supports(format: String): Boolean = format.lowercase() in supportedIds
+    override fun supports(format: String): Boolean = format.lowercase() in supportedIds
 
-    fun label(format: String): String =
+    override fun label(format: String): String =
         formats.firstOrNull { it.id == format.lowercase() }?.label ?: format.uppercase()
 }

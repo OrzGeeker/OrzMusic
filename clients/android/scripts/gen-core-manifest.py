@@ -40,16 +40,16 @@ data class DecoderFormat(
     val group: String
 )
 
-object DecoderManifest {
+object DecoderManifest : DecoderManifestSource {
 
 '''
 
 FOOTER = '''
     val supportedIds: Set<String> = formats.map { it.id }.toSet()
 
-    fun supports(format: String): Boolean = format.lowercase() in supportedIds
+    override fun supports(format: String): Boolean = format.lowercase() in supportedIds
 
-    fun label(format: String): String =
+    override fun label(format: String): String =
         formats.firstOrNull { it.id == format.lowercase() }?.label ?: format.uppercase()
 }
 '''
@@ -73,7 +73,7 @@ def render() -> str:
         "     */",
         f'    const val CACHE_NAMESPACE = "{profile["cacheNamespace"]}"',
         "",
-        "    val formats: List<DecoderFormat> = listOf(",
+        "    override val formats: List<DecoderFormat> = listOf(",
     ]
     for f in formats:
         lines.append(

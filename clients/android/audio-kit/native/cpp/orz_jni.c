@@ -148,6 +148,20 @@ Java_com_jokerhub_orzmusic_audiokit_OrzAudioCore_nativeDestroy(
     if (handle) orz_decoder_destroy_v1(handle);
 }
 
+/*
+ * 从别的线程打断正在进行的 render。
+ * 关闭流式解码时先 cancel 再 join 解码线程，最后才 destroy ——
+ * 否则会在 render 还没返回时释放 handle(use-after-free)。
+ */
+JNIEXPORT jint JNICALL
+Java_com_jokerhub_orzmusic_audiokit_OrzAudioCore_nativeCancel(
+        JNIEnv *env, jobject thiz, jlong j_handle) {
+    (void)env; (void)thiz;
+    OrzDecoderHandle *handle = as_handle(j_handle);
+    if (!handle) return ORZ_ERROR_INVALID_ARGUMENT;
+    return (jint)orz_decoder_cancel(handle);
+}
+
 JNIEXPORT jstring JNICALL
 Java_com_jokerhub_orzmusic_audiokit_OrzAudioCore_nativeProbe(
         JNIEnv *env, jobject thiz, jbyteArray j_data, jstring j_extension) {
@@ -185,6 +199,53 @@ Java_com_jokerhub_orzmusic_audiokit_OrzAudioCore_nativeAbiVersion(
         JNIEnv *env, jobject thiz) {
     (void)env; (void)thiz;
     return (jint)orz_abi_version();
+}
+
+/*
+ * 本机 .so 实际编进来的格式 id 列表。
+ *
+ * 生成的 DecoderManifest 是「这个 SDK 版本提供哪些格式」,而这个调用的结果才是
+ * 「当前二进制真的能解哪些格式」—— 两者取交集才是可用能力。
+ * 注册表用弱符号存根过滤缺失解码器(见 audio_engine.c 的 available()),
+ * 所以这里不需要自己判断 profile。
+ */
+JNIEXPORT jobjectArray JNICALL
+Java_com_jokerhub_orzmusic_audiokit_OrzAudioCore_nativeFormatIds(
+        JNIEnv *env, jobject thiz) {
+    (void)thiz;
+
+    uint32_t total = orz_get_format_count();
+    jclass string_class = (*env)->FindClass(env, "java/lang/String");
+    if (!string_class) return NULL;
+
+    jobjectArray out = (*env)->NewObjectArray(env, (jsize)total, string_class, NULL);
+    if (!out) return NULL;
+
+    jsize written = 0;
+    for (uint32_t i = 0; i < total; ++i) {
+        orz_format_info info;
+        memset(&info, 0, sizeof(info));
+        info.struct_size = (uint32_t)sizeof(info);
+        info.abi_version = ORZ_ABI_VERSION;
+        if (orz_get_format_info(i, &info) != ORZ_OK || !info.format_id) continue;
+
+        jstring id = (*env)->NewStringUTF(env, info.format_id);
+        if (!id) continue;
+        (*env)->SetObjectArrayElement(env, out, written++, id);
+        (*env)->DeleteLocalRef(env, id);
+    }
+
+    /* 有条目被跳过时数组尾部是 NULL;截断成 written 长度,避免 Kotlin 侧出现 null。 */
+    if (written == (jsize)total) return out;
+
+    jobjectArray trimmed = (*env)->NewObjectArray(env, written, string_class, NULL);
+    if (!trimmed) return out;
+    for (jsize i = 0; i < written; ++i) {
+        jobject item = (*env)->GetObjectArrayElement(env, out, i);
+        (*env)->SetObjectArrayElement(env, trimmed, i, item);
+        if (item) (*env)->DeleteLocalRef(env, item);
+    }
+    return trimmed;
 }
 
 JNIEXPORT jstring JNICALL

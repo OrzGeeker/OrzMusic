@@ -61,10 +61,21 @@ class PlaybackPolicyTest {
     }
 
     @Test
-    fun serverDecodeGoesToRemoteStream() {
-        val route = PlaybackPolicy.route(song("sc68", "serverDecode"), transport)
+    fun serverDecodeFallsBackToRemoteWhenLocalDecoderMissing() {
+        // 压缩 WAV 不在 decoder 清单里 —— 只能让服务端转码。
+        val route = PlaybackPolicy.route(song("wav", "serverDecode"), transport)
         assertEquals(
             PlaybackRoute.Remote("https://music.example.com/api/songs/1/stream"),
+            route
+        )
+    }
+
+    @Test
+    fun serverDecodeGoesNativeWhenLocalDecoderPresent() {
+        // native-first:本机能解 sc68 时不再让服务端转 WAV。
+        val route = PlaybackPolicy.route(song("sc68", "serverDecode"), transport)
+        assertEquals(
+            PlaybackRoute.Native("https://music.example.com/api/songs/1/raw"),
             route
         )
     }
@@ -80,15 +91,35 @@ class PlaybackPolicyTest {
 
     @Test
     fun unsupportedWasmFormatIsReported() {
-        val route = PlaybackPolicy.route(song("nsf", "wasmDecode"), transport)
+        // vgm 不在 OrzAudioCore 的 decoder 清单里 —— 只能回落网页播放器。
+        val route = PlaybackPolicy.route(song("vgm", "wasmDecode"), transport)
         assertTrue(route is PlaybackRoute.Unsupported)
-        assertEquals("nsf", (route as PlaybackRoute.Unsupported).format)
+        assertEquals("vgm", (route as PlaybackRoute.Unsupported).format)
     }
 
     @Test
-    fun manifestMatchesCompiledProfile() {
+    fun manifestCoversSdkProfile() {
+        // 清单是「这个 SDK 版本提供哪些格式」,不是「本机能不能解」。
         assertTrue(DecoderManifest.supports("mod"))
         assertTrue(DecoderManifest.supports("XM"))
-        assertTrue(!DecoderManifest.supports("nsf"))
+        assertTrue(DecoderManifest.supports("nsf"))
+    }
+
+    @Test
+    fun runtimeManifestFiltersMissingDecoders() {
+        val installed = setOf("xm", "mod")
+        val deviceManifest = object : DecoderManifestSource {
+            override val formats = DecoderManifest.formats.filter { it.id in installed }
+            override fun supports(format: String) = format.lowercase() in installed
+        }
+
+        assertEquals(
+            PlaybackRoute.Native("https://music.example.com/api/songs/1/raw"),
+            PlaybackPolicy.route(song("mod", "wasmDecode"), transport, deviceManifest)
+        )
+        assertTrue(
+            PlaybackPolicy.route(song("nsf", "wasmDecode"), transport, deviceManifest)
+                is PlaybackRoute.Unsupported
+        )
     }
 }

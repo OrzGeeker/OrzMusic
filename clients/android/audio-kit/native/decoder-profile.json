@@ -1,8 +1,8 @@
 {
-  "profile": "android-openmpt-builtin",
+  "profile": "android-full",
   "sdk": "OrzAudioCore 1.2.4",
   "libopenmpt": "0.8.0",
-  "cacheNamespace": "orzaudio-1.2.4-libopenmpt-0.8.0",
+  "cacheNamespace": "orzaudio-1.2.4-full",
   "formats": [
     {"id": "xm", "label": "XM", "group": "modules"},
     {"id": "mod", "label": "MOD", "group": "modules"},
@@ -12,8 +12,20 @@
     {"id": "mtm", "label": "MTM", "group": "modules"},
     {"id": "fc13", "label": "FC 1.3", "group": "modules"},
     {"id": "fc14", "label": "FC 1.4", "group": "modules"},
+    {"id": "nsf", "label": "NSF", "group": "retro"},
+    {"id": "spc", "label": "SPC", "group": "retro"},
+    {"id": "sid", "label": "SID", "group": "retro"},
+    {"id": "sc68", "label": "SC68", "group": "retro"},
     {"id": "ym", "label": "YM", "group": "retro"},
+    {"id": "sap", "label": "SAP", "group": "retro"},
+    {"id": "ahx", "label": "AHX", "group": "retro"},
+    {"id": "thx", "label": "THX", "group": "retro"},
     {"id": "mid", "label": "MIDI", "group": "synth"},
-    {"id": "bp", "label": "SoundMon BP", "group": "synth"}
+    {"id": "v2m", "label": "V2M", "group": "synth"},
+    {"id": "bp", "label": "SoundMon BP", "group": "synth"},
+    {"id": "rad", "label": "RAD", "group": "synth"},
+    {"id": "d00", "label": "D00", "group": "synth"},
+    {"id": "hsc", "label": "HSC", "group": "synth"},
+    {"id": "amd", "label": "AMD", "group": "synth"}
   ]
 }
