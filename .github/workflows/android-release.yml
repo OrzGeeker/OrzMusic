@@ -24,7 +24,7 @@ permissions:
 jobs:
   verify:
     # 生产 pin 精确 tag;升级 EasyRelease 时改这一处。
-    uses: EasyIndie/EasyRelease/.github/workflows/android-release.yml@android-v0.1.0
+    uses: EasyIndie/EasyRelease/.github/workflows/android-release.yml@android-v0.3.0
     # ⚠️ 必须是 write:被调 workflow 声明了 contents: write(它要能建 Release),
     # 而 GitHub 只允许「降权」不允许「提权」——这里给 read 会让整个 run 直接
     # startup_failure,而且报错信息只有「workflow file issue」,很难定位。
@@ -116,7 +116,7 @@ jobs:
 
             版本校验 / 签名指纹 / AAB 结构由
             [EasyIndie/EasyRelease](https://github.com/EasyIndie/EasyRelease) 的
-            `android-v0.1.0` 完成(manifest 见附件)。
+            `android-v0.3.0` 完成(manifest 见附件)。
 
             Git Commit: `${{ github.sha }}`
 
