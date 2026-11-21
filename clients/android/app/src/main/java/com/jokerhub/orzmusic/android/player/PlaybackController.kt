@@ -145,16 +145,21 @@ class PlaybackController(context: Context) : OrzAudioPlayer {
                 if (artist.isNotBlank()) metadata.setArtist(artist)
                 if (format.isNotBlank()) metadata.setGenre(format.uppercase())
                 if (durationMs > 0) metadata.setDurationMs(durationMs)
+                // 跨进程唯一可靠的通道：extras 是 Bundle，tag 不是。
+                formatExtras(format)?.let { metadata.setExtras(it) }
             }
             is AudioSource.Local -> {
                 builder.setUri(Uri.fromFile(File(path)).toString())
                 // tag = 格式 id：播放器据此决定走 PcmStream(本地解码) 还是 ExoPlayer(文件)。
+                // tag 过不了 MediaController 的 Binder 序列化，所以要同时写进 metadata extras。
                 if (format.isNotBlank()) builder.setTag(format.lowercase())
                 builder.setMediaId(id)
                 if (title.isNotBlank()) metadata.setTitle(title)
                 if (artist.isNotBlank()) metadata.setArtist(artist)
                 if (format.isNotBlank()) metadata.setGenre(format.uppercase())
                 if (durationMs > 0) metadata.setDurationMs(durationMs)
+                // 跨进程唯一可靠的通道：extras 是 Bundle，tag 不是。
+                formatExtras(format)?.let { metadata.setExtras(it) }
             }
         }
         return builder.setMediaMetadata(metadata.build()).build()

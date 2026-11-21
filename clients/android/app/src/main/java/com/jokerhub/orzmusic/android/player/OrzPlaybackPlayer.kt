@@ -214,7 +214,7 @@ class OrzPlaybackPlayer(
             return
         }
 
-        val format = mediaItem.localConfiguration?.tag as? String
+        val format = mediaItemFormat(mediaItem)
         val uri = mediaItem.localConfiguration?.uri
         val filePath = uri?.takeIf { it.scheme == "file" }?.path
         val decodable = format != null && OrzAudioCore.supports(format)
