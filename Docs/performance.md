@@ -143,6 +143,28 @@ make warm-decode-cache FORMAT=sc68 RECENT=10 CONCURRENCY=1
 
 选择器组合时取交集。命令只处理实际解析为 `serverDecode` 的曲目，跳过 direct/WASM；已有有效 PCM WAV 计为 `cache_hits` 并跳过解码。汇总包含选择数、可预热数、新生成数、cache hit、跳过数、缺失文件和失败明细；任一失败返回退出码 2。
 
+### 按命中收敛预热范围
+
+`serverDecode` 每次命中都会记一笔（`ServerDecodeHitTracker`，落盘在
+`data/decode-hits.json`，可用 `DECODE_HIT_STATS_PATH` 覆盖）。先看哪些格式还有人要服务端转码：
+
+```bash
+make decode-hits
+# decode-hits path=data/decode-hits.json formats=1
+# decode-hits format=sc68 count=42 last=2026-11-20T10:12:03Z
+```
+
+然后只预热「最近 14 天至少被请求过 1 次」的格式：
+
+```bash
+make warm-decode-cache RECENT=50 MIN_HITS=1 HITS_WINDOW_DAYS=14
+# 汇总里多一项 skipped_no_recent_hits=<被跳过的曲目数>
+```
+
+客户端能本地解码的格式（Android `android-full` profile 覆盖 23 个）本来就不会再走
+`serverDecode`，命中统计会把它们自然淘汰掉——不需要手工维护格式白名单。
+
+
 ### 容量报告与安全清理
 
 缓存治理命令默认只报告，不删除。清理策略也默认 dry-run，必须额外提供 `APPLY=1` 才会修改文件：

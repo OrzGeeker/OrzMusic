@@ -8,6 +8,9 @@ private struct CLIOptions {
     var recent: Int?
     var concurrency = 1
     var dryRun = false
+    var minHits: Int?
+    var hitsWindowDays: Double = 14
+    var printHits = false
 }
 
 private enum CLIError: LocalizedError {
@@ -57,6 +60,12 @@ private func parseOptions() throws -> CLIOptions {
             }
             options.ids.append(contentsOf: ids)
         case "--format": options.format = try value("--format").lowercased()
+        case "--min-hits": options.minHits = try positiveInt("--min-hits")
+        case "--hits-window-days":
+            let raw = try value("--hits-window-days")
+            guard let parsed = Double(raw), parsed > 0 else { throw CLIError.invalidValue("--hits-window-days") }
+            options.hitsWindowDays = parsed
+        case "--print-hits": options.printHits = true
         case "--recent": options.recent = try positiveInt("--recent")
         case "--concurrency": options.concurrency = try positiveInt("--concurrency")
         case "--dry-run": options.dryRun = true
@@ -69,6 +78,9 @@ private func parseOptions() throws -> CLIOptions {
               --recent N         select the N most recently imported songs
               --concurrency N    maximum concurrent decodes (default 1)
               --dry-run          report selection without creating cache files
+              --min-hits N       only warm formats with >= N recent serverDecode hits
+              --hits-window-days D  hit window for --min-hits (default 14)
+              --print-hits       print recorded serverDecode hit counts and exit
             At least one selector is required. Combined selectors are intersected.
             """)
             Foundation.exit(0)
@@ -76,7 +88,8 @@ private func parseOptions() throws -> CLIOptions {
         }
         index += 1
     }
-    guard !options.ids.isEmpty || options.format != nil || options.recent != nil else {
+    if options.printHits { return options }
+    guard !options.ids.isEmpty || options.format != nil || options.recent != nil || options.minHits != nil else {
         throw CLIError.missingSelector
     }
     return options
@@ -86,6 +99,19 @@ private func parseOptions() throws -> CLIOptions {
 struct DecodeCacheWarmupCommand {
     static func main() async throws {
         let cli = try parseOptions()
+        if cli.printHits {
+            let path = Environment.get("DECODE_HIT_STATS_PATH") ?? "data/decode-hits.json"
+            let hits = ServerDecodeHitTracker.loadSnapshot(path: path)
+            print("decode-hits path=\(path) formats=\(hits.count)")
+            for (format, hit) in hits.sorted(by: { $0.value.count > $1.value.count }) {
+                let stamp = hit.lastHitEpoch > 0
+                    ? ISO8601DateFormatter().string(from: hit.lastHit)
+                    : "never"
+                print("decode-hits format=\(format) count=\(hit.count) last=\(stamp)")
+            }
+            return
+        }
+
         let app = try await Application.make(.production)
         do {
             try configure(app)
@@ -97,13 +123,18 @@ struct DecodeCacheWarmupCommand {
                 format: cli.format,
                 recent: cli.recent,
                 concurrency: cli.concurrency,
-                dryRun: cli.dryRun
+                dryRun: cli.dryRun,
+                minHits: cli.minHits,
+                hitsWindowDays: cli.hitsWindowDays
             ))
 
             print(
                 "decode-cache-warmup selected=\(summary.selected) eligible=\(summary.eligible) " +
                 "warmed=\(summary.warmed) cache_hits=\(summary.cacheHits) " +
-                "skipped=\(summary.skippedNonServerDecode) missing_files=\(summary.missingFiles) " +
+                "skipped=\(summary.skippedNonServerDecode) " +
+                "skipped_no_recent_hits=\(summary.skippedNoRecentHits) " +
+                "min_hits=\(cli.minHits.map { String($0) } ?? "off") " +
+                "missing_files=\(summary.missingFiles) " +
                 "failures=\(summary.failures.count) dry_run=\(cli.dryRun)"
             )
             for failure in summary.failures {

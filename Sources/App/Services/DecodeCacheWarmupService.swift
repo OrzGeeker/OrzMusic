@@ -1,6 +1,7 @@
 import Fluent
 import Foundation
 import OrzAudioKit
+import Vapor
 
 public struct DecodeCacheWarmupOptions: Sendable {
     public var ids: [UUID]
@@ -8,13 +9,27 @@ public struct DecodeCacheWarmupOptions: Sendable {
     public var recent: Int?
     public var concurrency: Int
     public var dryRun: Bool
+    /// 只预热「最近确实被 serverDecode 请求过」的格式（命中统计见 ServerDecodeHitTracker）。
+    public var minHits: Int?
+    /// 命中时间窗口（天）。默认 14 天。
+    public var hitsWindowDays: Double
 
-    public init(ids: [UUID] = [], format: String? = nil, recent: Int? = nil, concurrency: Int = 1, dryRun: Bool = false) {
+    public init(
+        ids: [UUID] = [],
+        format: String? = nil,
+        recent: Int? = nil,
+        concurrency: Int = 1,
+        dryRun: Bool = false,
+        minHits: Int? = nil,
+        hitsWindowDays: Double = 14
+    ) {
         self.ids = ids
         self.format = format
         self.recent = recent
         self.concurrency = concurrency
         self.dryRun = dryRun
+        self.minHits = minHits
+        self.hitsWindowDays = hitsWindowDays
     }
 }
 
@@ -30,6 +45,8 @@ public struct DecodeCacheWarmupSummary: Sendable {
     public var warmed = 0
     public var cacheHits = 0
     public var skippedNonServerDecode = 0
+    /// 因为没有近期命中统计而被跳过的曲目数（只在 minHits 生效时计数）。
+    public var skippedNoRecentHits = 0
     public var missingFiles = 0
     public var failures: [DecodeCacheWarmupFailure] = []
 }
@@ -46,6 +63,22 @@ public struct DecodeCacheWarmupService: Sendable {
     public func run(options: DecodeCacheWarmupOptions) async throws -> DecodeCacheWarmupSummary {
         precondition(options.concurrency > 0)
         precondition(options.recent.map { $0 > 0 } ?? true)
+        precondition(options.hitsWindowDays > 0)
+
+        // 命中收敛：只保留最近真的被请求过的格式；minHits == nil 时不过滤。
+        var allowedFormats: Set<String>? = nil
+        if let minHits = options.minHits {
+            let tracker = ServerDecodeHitTracker(
+                path: URL(fileURLWithPath: Environment.get("DECODE_HIT_STATS_PATH") ?? "data/decode-hits.json")
+            )
+            allowedFormats = await tracker.activeFormats(
+                minHits: minHits,
+                windowDays: options.hitsWindowDays
+            )
+        }
+
+        // Swift 6:并发闭包只能捕获不可变值,拷成 let 再传进去。
+        let allowedFormatsFilter = allowedFormats
 
         var query = Song.query(on: database)
         if !options.ids.isEmpty {
@@ -72,7 +105,13 @@ public struct DecodeCacheWarmupService: Sendable {
             let results = await withTaskGroup(of: WarmupResult.self) { group in
                 for song in batch {
                     group.addTask {
-                        await Self.prepare(song: song, cache: cache, cas: cas, dryRun: options.dryRun)
+                        await Self.prepare(
+                            song: song,
+                            cache: cache,
+                            cas: cas,
+                            dryRun: options.dryRun,
+                            allowedFormats: allowedFormatsFilter
+                        )
                     }
                 }
                 var values: [WarmupResult] = []
@@ -87,6 +126,7 @@ public struct DecodeCacheWarmupService: Sendable {
                 case .warmed: summary.warmed += 1
                 case .cacheHit: summary.cacheHits += 1
                 case .skipped: summary.skippedNonServerDecode += 1
+                case .skippedByHits: summary.skippedNoRecentHits += 1
                 case .missing:
                     summary.missingFiles += 1
                     summary.failures.append(result.failure!)
@@ -99,7 +139,7 @@ public struct DecodeCacheWarmupService: Sendable {
     }
 
     private enum Status: Sendable {
-        case dryRun, warmed, cacheHit, skipped, missing, failed
+        case dryRun, warmed, cacheHit, skipped, skippedByHits, missing, failed
     }
 
     private struct WarmupResult: Sendable {
@@ -112,10 +152,15 @@ public struct DecodeCacheWarmupService: Sendable {
         song: Song,
         cache: DecodedAudioCacheService,
         cas: CasStorageService,
-        dryRun: Bool
+        dryRun: Bool,
+        allowedFormats: Set<String>?
     ) async -> WarmupResult {
         guard let format = AudioFormat(rawValue: song.fileFormat.lowercased()) else {
             return .init(eligible: false, status: .skipped, failure: nil)
+        }
+        // 命中收敛:该格式最近没人走 serverDecode,就不用再预热了。
+        if let allowedFormats, !allowedFormats.contains(format.rawValue) {
+            return .init(eligible: false, status: .skippedByHits, failure: nil)
         }
         let path = cas.resolve(sha256: song.sha256, format: song.fileFormat)
         guard FileManager.default.fileExists(atPath: path) else {

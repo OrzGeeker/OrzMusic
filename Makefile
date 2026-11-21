@@ -38,6 +38,7 @@ help:
 	@echo "  make audit-fingerprints Validate production fingerprint policy (ALL=1 for eligible full scan)"
 	@echo "  make backfill-durations Repair missing song durations (DRY_RUN=1 for preview)"
 	@echo "  make warm-decode-cache Pre-generate selected server-decode WAV caches"
+	@echo "  make decode-hits    Show recorded serverDecode hit counts (per format)"
 	@echo "  make maintain-decode-cache Report or safely prune decoded WAV caches"
 	@echo "  make test           Run Swift and browser tests"
 	@echo "  make swift-test     Run Swift tests"
@@ -80,8 +81,8 @@ sdk-server:
 sdk-web:
 	./script/update-audio-core-web.sh
 
-# 可选：装上之后 audio-kit 的 build-android.sh 只编 JNI 胶水（秒级），
-# 不再本地编 9 个第三方库；没装则退回 vendored 源码（只有 13 个格式）。
+# 可选:装上之后 audio-kit 的 build-android.sh 只编 JNI 胶水(秒级),
+# 不再本地编 9 个第三方库;没装则退回 vendored 源码(只有 13 个格式)。
 .PHONY: sdk-android
 sdk-android:
 	./script/update-audio-core-android.sh
@@ -194,9 +195,16 @@ warm-decode-cache:
 	if [ -n "$${SONG_IDS:-}" ]; then args="$$args --ids \"$$SONG_IDS\""; fi; \
 	if [ -n "$${FORMAT:-}" ]; then args="$$args --format \"$$FORMAT\""; fi; \
 	if [ -n "$${RECENT:-}" ]; then args="$$args --recent \"$$RECENT\""; fi; \
+	if [ -n "$${MIN_HITS:-}" ]; then args="$$args --min-hits \"$$MIN_HITS\""; fi; \
+	if [ -n "$${HITS_WINDOW_DAYS:-}" ]; then args="$$args --hits-window-days \"$$HITS_WINDOW_DAYS\""; fi; \
 	if [ "$(DRY_RUN)" = "1" ]; then args="$$args --dry-run"; fi; \
 	echo "swift run OrzDecodeCacheWarmup $$args"; \
 	eval swift run OrzDecodeCacheWarmup "$$args"
+
+# 查看 serverDecode 命中统计：哪些格式还有人要服务端转码。
+.PHONY: decode-hits
+decode-hits:
+	@swift run OrzDecodeCacheWarmup --print-hits
 
 .PHONY: maintain-decode-cache
 maintain-decode-cache:

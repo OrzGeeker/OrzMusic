@@ -157,6 +157,12 @@ struct SongController: RouteCollection {
             return try await req.fileio.asyncStreamFile(at: path)
 
         case .serverDecode(let path, let fmt):
+            // 命中统计：`make warm-decode-cache MIN_HITS=…` 据此收敛预热范围。
+            // 用 detached task 计数，不把写文件放进请求路径。
+            let hits = req.application.decodeHits
+            Task.detached(priority: .utility) {
+                await hits.record(format: fmt.rawValue)
+            }
             // 尝试从转码缓存读取（避免重复 ffmpeg）
             let cachePath = try await cachedDecode(
                 originalPath: path,
