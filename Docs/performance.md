@@ -148,6 +148,10 @@ make warm-decode-cache FORMAT=sc68 RECENT=10 CONCURRENCY=1
 `serverDecode` 每次命中都会记一笔（`ServerDecodeHitTracker`，落盘在
 `data/decode-hits.json`，可用 `DECODE_HIT_STATS_PATH` 覆盖）。先看哪些格式还有人要服务端转码：
 
+> `docker-compose*.yml` 已经把宿主 `./data` 绑到容器的 `/app/data`
+> （`DECODE_HIT_STATS_DIR` 可改），所以命中统计活得比容器久，宿主上的 CLI 也能直接读。
+> 容器里不挂这个卷的话，每次重建都会把 14 天窗口清零。
+
 ```bash
 make decode-hits
 # decode-hits path=data/decode-hits.json formats=1

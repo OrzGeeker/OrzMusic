@@ -24,6 +24,8 @@ dist/
 
 # Runtime CAS library and decoded WAV cache are local data, never source.
 /data/music/
+# serverDecode 命中统计(compose 把 ./data 绑到容器的 /app/data)
+/data/*.json
 /music/
 
 # ---- Android 客户端(clients/android)----

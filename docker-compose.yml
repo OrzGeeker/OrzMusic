@@ -62,6 +62,9 @@ services:
     volumes:
       - cas_data:/data/music
       - ${MUSIC_DIR:-./keygenmusic}:/sources/music:ro
+      # serverDecode 命中统计(`data/decode-hits.json`)绑到宿主:容器重建后仍保留,
+      # 宿主机上的 `make decode-hits` / `make warm-decode-cache` 也能直接读。
+      - ${DECODE_HIT_STATS_DIR:-./data}:/app/data
     command: ["serve", "--env", "production", "--hostname", "0.0.0.0", "--port", "8080"]
 
   migrate:
