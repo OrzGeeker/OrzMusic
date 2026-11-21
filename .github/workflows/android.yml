@@ -24,6 +24,37 @@ jobs:
           java-version: "17"
           cache: gradle
 
+      # Robolectric 跑起来时会自己去 Maven 拉 android-all(约 200MB),而它的
+      # MavenArtifactFetcher **不做重试** —— 碰上偶发 404 / 镜像抽风,整个 job
+      # 直接红(2026-11-21 c9677e8 那次就是:两个 Robolectric 测试类都挂在
+      # `java.io.FileNotFoundException at HttpURLConnection`)。这里预下载到
+      # ~/.m2 并缓存,Robolectric 发现本地已有就不再联网。
+      # 版本必须和 clients/android/app/src/test/resources/robolectric.properties
+      # 的 `sdk=35` 对上(sdk=35 → 15-robolectric-13954326-i7)。
+      - name: 缓存 Robolectric android-all
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: robolectric-android-all-15-robolectric-13954326-i7
+
+      - name: 预热 Robolectric android-all(缺失时带重试下载)
+        env:
+          ARTIFACT: android-all-instrumented-15-robolectric-13954326-i7
+        run: |
+          set -euo pipefail
+          jar="$HOME/.m2/repository/org/robolectric/android-all-instrumented/15-robolectric-13954326-i7/$ARTIFACT.jar"
+          if [ -f "$jar" ] && [ "$(stat -c%s "$jar")" -gt 10000000 ]; then
+            echo "已命中缓存:$jar($(stat -c%s "$jar") 字节)"
+            exit 0
+          fi
+          mkdir -p "$(dirname "$jar")"
+          curl -fL --retry 5 --retry-all-errors --retry-delay 5 \
+            -o "$jar" \
+            "https://repo1.maven.org/maven2/org/robolectric/android-all-instrumented/15-robolectric-13954326-i7/$ARTIFACT.jar"
+          # 截断的 jar 会让 Robolectric 报难懂的校验错,先自己挡住
+          [ "$(stat -c%s "$jar")" -gt 10000000 ] || { echo "下载不完整:$jar" >&2; exit 1; }
+          echo "已下载:$jar($(stat -c%s "$jar") 字节)"
+
       # 截图测试在 CI 上**只断言不出图**:出图是本地迭代用的,
       # 两种模式的开关在 app/build.gradle.kts 的 testOptions 里。
       - name: 单元测试 + 截图断言 + debug 包
