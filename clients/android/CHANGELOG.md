@@ -5,6 +5,22 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [0.8.0](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.7.1...android-v0.8.0) - 2026-11-21
+
+### 不兼容变更
+
+- feat(android)!: 许可证改为 GPL-3.0-or-later 并补上架合规检查 ([620cc96](https://github.com/OrzGeeker/OrzMusic/commit/620cc96))
+
+### 新增
+
+- feat(android): 设置页增加开源许可与源码入口 ([2e6c5d2](https://github.com/OrzGeeker/OrzMusic/commit/2e6c5d2))
+- feat(android): 用 PcmStream + AudioTrack 流式播放模块音乐 ([731f60e](https://github.com/OrzGeeker/OrzMusic/commit/731f60e))
+- feat(android): 消费上游 Android SDK 资产，liborzaudio.so 覆盖 23 个格式 ([642ed8d](https://github.com/OrzGeeker/OrzMusic/commit/642ed8d))
+- feat(android): 运行时探测解码能力并按 native-first 路由 ([7012603](https://github.com/OrzGeeker/OrzMusic/commit/7012603))
+
+### 其他
+
+- docs(android): 记录解码器打包决策与流式播放方案 ([de8eee4](https://github.com/OrzGeeker/OrzMusic/commit/de8eee4))
 ## [0.7.1](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.7.0...android-v0.7.1) - 2026-11-20
 
 ### 新增
