@@ -42,3 +42,7 @@ captures/
 keystore.properties
 *.jks
 *.keystore
+
+# OrzAudioCore Android SDK 资产(script/update-audio-core-android.sh 安装,校验 sha256)
+clients/android/audio-kit/native/.sdk/
+clients/android/audio-kit/native/.build/

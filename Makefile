@@ -21,6 +21,7 @@ help:
 	@echo "  make setup          Install native and Web OrzAudioCore SDK assets"
 	@echo "  make sdk-server     Install native OrzAudioCore SDK"
 	@echo "  make sdk-web        Install Web/WASM OrzAudioCore SDK"
+	@echo "  make sdk-android    Install Android OrzAudioCore SDK (prebuilt core)"
 	@echo ""
 	@echo "Local:"
 	@echo "  make status         Show local ports and Docker service status"
@@ -78,6 +79,12 @@ sdk-server:
 .PHONY: sdk-web
 sdk-web:
 	./script/update-audio-core-web.sh
+
+# 可选：装上之后 audio-kit 的 build-android.sh 只编 JNI 胶水（秒级），
+# 不再本地编 9 个第三方库；没装则退回 vendored 源码（只有 13 个格式）。
+.PHONY: sdk-android
+sdk-android:
+	./script/update-audio-core-android.sh
 
 .PHONY: build
 build:

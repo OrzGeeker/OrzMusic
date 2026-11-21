@@ -189,13 +189,27 @@ build_so() {
   local cdir="$BUILD/cmake-$abi"
   step "编译 liborzaudio.so ($abi)"
   rm -rf "$cdir"
+  # 优先用上游发布的 libOrzAudioCore.a(23 个格式),只编 JNI 胶水;
+  # 没有资产时退回 vendored 源码 + 本地编的 libopenmpt(只有 13 个格式)。
+  local core_args=()
+  local prebuilt="$NATIVE/.sdk/android/$abi/libOrzAudioCore.a"
+  if [ -f "$prebuilt" ]; then
+    echo "  核心: 上游预编译 $prebuilt"
+    core_args+=("-DORZ_PREBUILT_CORE=$prebuilt")
+    [ -f "$NATIVE/.sdk/native/include/orz_audio_core.h" ] && \
+      core_args+=("-DORZ_PREBUILT_INCLUDE=$NATIVE/.sdk/native/include")
+  else
+    echo "  核心: vendored 源码(先跑 script/update-audio-core-android.sh 可切到上游资产)"
+    core_args+=("-DOPENMPT_LIB=$BUILD/ompt-$abi/.libs/libopenmpt.a")
+  fi
+
   "$CM" -S "$NATIVE/cpp" -B "$cdir" -G Ninja \
     -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
     -DCMAKE_BUILD_TYPE=Release \
     -DANDROID_ABI="$abi" \
     -DANDROID_PLATFORM="android-$API" \
     -DANDROID_STL=c++_static \
-    -DOPENMPT_LIB="$BUILD/ompt-$abi/.libs/libopenmpt.a" \
+    "${core_args[@]}" \
     > "$cdir.configure.log" 2>&1 \
     || { tail -30 "$cdir.configure.log"; die "$abi CMake 配置失败"; }
 
@@ -209,18 +223,20 @@ build_so() {
 }
 
 run_abi() {
-  case "$1" in
+  local abi="$1"
+  local prebuilt="$NATIVE/.sdk/android/$abi/libOrzAudioCore.a"
+  case "$abi" in
     arm64-v8a)
-      build_openmpt "arm64-v8a" "aarch64-linux-android" \
+      [ -f "$prebuilt" ] || build_openmpt "arm64-v8a" "aarch64-linux-android" \
         "aarch64-linux-android$API-clang" "aarch64-linux-android$API-clang++"
       build_so "arm64-v8a"
       ;;
     armeabi-v7a)
-      build_openmpt "armeabi-v7a" "armv7a-linux-androideabi" \
+      [ -f "$prebuilt" ] || build_openmpt "armeabi-v7a" "armv7a-linux-androideabi" \
         "armv7a-linux-androideabi$API-clang" "armv7a-linux-androideabi$API-clang++"
       build_so "armeabi-v7a"
       ;;
-    *) die "不支持的 ABI: $1(可用: arm64-v8a / armeabi-v7a)" ;;
+    *) die "不支持的 ABI: $abi(可用: arm64-v8a / armeabi-v7a)" ;;
   esac
 }
 

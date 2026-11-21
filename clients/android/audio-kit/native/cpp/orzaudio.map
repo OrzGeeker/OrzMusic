@@ -1,0 +1,25 @@
+/*
+ * liborzaudio.so 的导出符号白名单。
+ *
+ * 我们把上游的静态库(OrzAudioCore + 9 个第三方解码器)整个链进来,但对外只需要
+ * JNI 入口:第三方符号(ASAPInfo_*、adplug、sidplayfp、sc68、gme ...)一律 local,
+ * 否则会出现上千个导出符号,既污染进程符号空间,也可能和 App 里其它库互相抢占。
+ *
+ * 新增 JNI 方法时同步在这里加一行。
+ */
+ORZAUDIO_1.0 {
+    global:
+        Java_com_jokerhub_orzmusic_audiokit_OrzAudioCore_nativeCreateDecoder;
+        Java_com_jokerhub_orzmusic_audiokit_OrzAudioCore_nativeStreamInfo;
+        Java_com_jokerhub_orzmusic_audiokit_OrzAudioCore_nativeRenderF32;
+        Java_com_jokerhub_orzmusic_audiokit_OrzAudioCore_nativeSeek;
+        Java_com_jokerhub_orzmusic_audiokit_OrzAudioCore_nativeSelectSubsong;
+        Java_com_jokerhub_orzmusic_audiokit_OrzAudioCore_nativeCancel;
+        Java_com_jokerhub_orzmusic_audiokit_OrzAudioCore_nativeDestroy;
+        Java_com_jokerhub_orzmusic_audiokit_OrzAudioCore_nativeProbe;
+        Java_com_jokerhub_orzmusic_audiokit_OrzAudioCore_nativeFormatIds;
+        Java_com_jokerhub_orzmusic_audiokit_OrzAudioCore_nativeAbiVersion;
+        Java_com_jokerhub_orzmusic_audiokit_OrzAudioCore_nativeBuildInfo;
+    local:
+        *;
+};
