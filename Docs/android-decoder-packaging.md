@@ -21,7 +21,7 @@
 |---|---|---|
 | 打包形态 | **单模块、单个 `liborzaudio.so`**，不做 AAR 拆分、不做插件 dlopen、不做独立进程 | 工程成本最低（约 2 人日 vs 5~25 人日），且 `sc68`/`sid` 是模拟器实现，进程隔离的收益不足以抵消复杂度 |
 | 许可证 | `clients/android/` 整体 **GPL-3.0-or-later**；`audio-core-android` AAR 的 POM 同样声明 GPL-3.0-or-later | 静态链接 GPL 解码器后整体是 GPLv3 作品。Apache-2.0 与 GPLv2 不兼容，只能升 v3 |
-| profile | `android-full`（23 格式），`cacheNamespace = orzaudio-1.2.4-full` | 与 server/WASM 同源 |
+| profile | `android-full`（23 格式），`cacheNamespace = orzaudio-1.3.0-full` | 与 server/WASM 同源 |
 | 能力判定 | **运行时探测为准**：`orz_get_format_count()` / `orz_get_format_info()` ∩ 生成的清单 | 清单先行、二进制后到也不会播错；漏编 decoder 时自动降级 |
 | 播放形态 | 流式（`PcmStream` + `AudioTrack`），不再整曲转 WAV | 见 [`backlog/android-pcm-streaming.md`](backlog/android-pcm-streaming.md) |
 
@@ -139,7 +139,7 @@ OrzAudioCore-<ver>-android-full/
 |---|---|
 | Android NDK r27b | `/mnt/e/dev/toolchains/android-ndk-r27b` |
 | Android SDK（platform 36 / build-tools 36） | `/mnt/e/dev/toolchains/android-sdk`（`clients/android/local.properties` 指向它，已 gitignore） |
-| 构建产物 | `/mnt/e/dev/orz-assets/OrzAudioCore-1.2.4-android-full.tar.gz`（sha256 `2691354ad7ff…`） |
+| 构建产物 | 本地预演 `/mnt/e/dev/orz-assets/OrzAudioCore-1.2.4-android-full.tar.gz`；正式发布 `OrzAudioCore-1.3.0-android-full.tar.gz`（sha256 `5cdf0608efca…`，含 arm64-v8a / armeabi-v7a / x86_64） |
 
 实测结论：
 
@@ -164,32 +164,34 @@ OrzAudioCore-<ver>-android-full/
 3. 合并静态库：11 个 `.a` 合成一个自包含 `libOrzAudioCore.a`，
    否则消费方要关心 9 个依赖的链接顺序。
 
-## 发布流程（需要你的凭据）
+## 发布流程（已于 2026-11-21 走完）
+
+上游 `OrzAudioCore v1.3.0` 已发布，`android` job 产出
+`OrzAudioCore-1.3.0-android-full.tar.gz`（sha256 `5cdf0608efca…`，
+含 arm64-v8a / armeabi-v7a / x86_64）。当时的步骤：
 
 ```bash
 cd /mnt/e/dev/OrzAudioCore
-git add -A
-git commit -m "feat(android): full-profile cross build, SDK asset packaging, release job"
-
-# 1) 先把版本号从 1.2.4 涨到 1.3.0(新增平台产物 = minor),
-#    check-release-readiness.mjs 会校验下面这些地方必须一致:
+# 1) 版本号 1.2.4 → 1.3.0(新增平台产物 = minor),以下必须一致:
 #      decoder-manifest.json            sdkVersion
 #      CMakeLists.txt                   project(... VERSION)
 #      SDK/Web/decoder-manifest.json    sdkVersion
 #      SDK/Web/package.json(.lock)      version
-#    然后 node script/check-release-readiness.mjs 1.3.0 必须通过。
-# 2) 打 tag 推送,tag 会触发 release.yml 的 android job:
+#    node script/check-release-readiness.mjs 1.3.0
+# 2) tag 触发 release.yml(自带 android job):
 git tag v1.3.0 && git push origin main --tags
-```
 
-CI 产出 `OrzAudioCore-1.3.0-android-full.tar.gz` 之后，回本仓库：
-
-```bash
-# lock 里补 androidAssets / androidAssetsSha256(从 release 的 .sha256 抄)
+# 3) 回 OrzMusic:lock 补 androidAssets / androidAssetsSha256,再重编 .so
 make sdk-android
 bash clients/android/audio-kit/scripts/build-android.sh
 cd clients/android && ./gradlew assembleDebug
 ```
+
+下次升级照抄这段即可，唯一的硬前提是上游先发带 `android` job 的 tag。
+
+> 两个坑记一下：`main` 受 ruleset 保护（必需检查通过后把分支快进过去，不要
+> 直接 push）；新加的 `script/*.sh` 在 NTFS 上会丢 exec 位，提交时要
+> `git update-index --chmod=+x`，否则 CI 报 `Permission denied (exit 126)`。
 
 ## 剩余待办
 
@@ -200,10 +202,11 @@ cd clients/android && ./gradlew assembleDebug
       + 自包含静态库（17MB / 15MB），资产 `OrzAudioCore-1.2.4-android-full.tar.gz`
       sha256 `2691354ad7ffe3cbc6cd0990eb0fea3bdf425cc981d58f6eadb0a454a1f5bfe9`
 - [x] `liborzaudio.so` 已重建为 23 格式（arm64 5.1MB / armv7 4.3MB）
-- [ ] 上游发一个带 `android` job 的 tag，把 `androidAssets` 写进 lock
-      （在那之前用 `bash script/update-audio-core-android.sh --local <tarball>`）
-- [ ] 替换 `audio-kit/src/main/jniLibs/*/liborzaudio.so`（替换后在设备上确认
-      `OrzAudioCore.supportedFormats` = 23 项）
+- [x] 上游发带 `android` job 的 tag（v1.3.0），`androidAssets` 已写进 lock
+- [x] `liborzaudio.so` 已用 v1.3.0 资产重建（arm64 4.5MB / armv7 3.9MB，11 个 JNI 符号，
+      16KB 对齐，`orz_build_info()` = `orzcore-1.3.0-m1`）
+- [ ] 真机上确认 `OrzAudioCore.supportedFormats` = 23 项（需实体设备，
+      与 PCM 流式播放的验收清单一起跑）
 - [x] Media3 桥：`OrzPlaybackPlayer`（`SimpleBasePlayer`）把 `PcmStream` 接进
       `PlaybackService`，通知栏/锁屏/耳机线控行为不变 ——
       见 [`backlog/android-pcm-streaming.md`](backlog/android-pcm-streaming.md)

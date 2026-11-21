@@ -122,7 +122,7 @@ GPL-3.0-or-later:它静态链接了 `sidplayfp` / `sc68` / `asap` 等 GPL 解码
   `DecoderManifest` / `CacheKey`
 - `app/` —— Android:Compose、Media3、文件缓存
 - `audio-kit/` —— **平台解码 SDK(OrzAudioCore)**:JNI + 流式 AudioDecoder + WavFile + OrzAudioCore 源码 + `decoder-profile.json`;
-  可发布为 `com.orzgeeker:audio-core-android:1.2.4`(见 [`audio-kit/README.md`](audio-kit/README.md))
+  可发布为 `com.orzgeeker:audio-core-android:1.3.0`(见 [`audio-kit/README.md`](audio-kit/README.md))
 
 规则:**业务语义写在 `core/`;不要在 UI/Player 里手写格式白名单或队列逻辑。**
 
