@@ -5,6 +5,16 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [0.8.4](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.8.3...android-v0.8.4) - 2026-11-22
+
+0.8.3 让进度条「看起来能交互」了，但射线确认/拖动之后音频不跳位置、进度也不更新。
+根因是 `SeekBar` 把 `onKeyEvent` 写在 `.focusable()` 之后 —— Compose 只把按键
+冒泡给焦点节点的祖先 modifier，所以进度条一直收不到按键（原有的左右键 ±5s 也是死的）。
+
+### 修复
+
+- fix(android): 修好进度条的按键处理顺序，确认键按射线落点 seek ([916b68d](https://github.com/OrzGeeker/OrzMusic/commit/916b68d))
+
 ## [0.8.3](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.8.2...android-v0.8.3) - 2026-11-22
 
 真机上量了四项（PICO A8110）：seek `1530 → 30000 → 30786ms` 正常、声场峰值 `0.419`、
