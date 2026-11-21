@@ -86,6 +86,16 @@ val keystoreProps: Properties? = findUpward("keystore.properties")?.let { f ->
         .also { it.setProperty("__file", f.absolutePath) }
 }
 
+// 许可证资产:仓库根的 LICENSE(GPLv3)+ THIRD_PARTY_NOTICES.md
+// 装进 APK 的 assets/licenses/，设置页直接读，不再手抄一份。
+val copyLicenseAssets by tasks.registering(Copy::class) {
+    from(rootProject.file("LICENSE")) { rename { "GPL-3.0.txt" } }
+    from(rootProject.file("THIRD_PARTY_NOTICES.md"))
+    into(layout.buildDirectory.dir("generated/licenses/licenses"))
+}
+
+tasks.named("preBuild") { dependsOn(copyLicenseAssets) }
+
 android {
     namespace = "com.jokerhub.orzmusic.android"
     // OrzMusic 是要上 Google Play 的正式应用;2026-08-31 起要求 target API 36。
@@ -151,6 +161,10 @@ android {
         // 界面上显示的版本号来自 BuildConfig.VERSION_NAME,不再硬编码字面量
         buildConfig = true
     }
+
+    // GPLv3 §6:应用内要能读到许可证/第三方声明。
+    // 直接从仓库根拷贝,避免在 app 里再存一份会漂移的副本。
+    sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/licenses"))
 
     // lint:现有问题先固化进基线,之后**新增**一条就失败。
     //

@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -194,6 +195,8 @@ fun SettingsContent(
 ) {
     var draft by remember(serverUrl) { mutableStateOf(serverUrl) }
     var advanced by remember { mutableStateOf(false) }
+    var showLicenses by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Column(
         modifier = modifier
@@ -246,12 +249,19 @@ fun SettingsContent(
                     Text(if (advanced) "收起调试信息" else "显示调试信息")
                 }
             }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // GPLv3 §6:应用内必须能拿到许可证与对应源码入口。
+                OrzButton(onClick = { showLicenses = true }) { Text("开源许可 / 源码") }
+            }
             if (advanced) {
+                val formats = com.jokerhub.orzmusic.android.player.RuntimeDecoderManifest.formats
                 Text(
                     text = "服务器：$serverUrl\n" +
                         "版本：v$version\n" +
-                        "解码：OrzAudioCore + libopenmpt（原生）\n" +
-                        "说明：后台播放 / MediaSession 尚未接入。",
+                        "解码：OrzAudioCore 1.2.4（本机可用 ${formats.size} 个格式：" +
+                        formats.joinToString("/") { it.id } + "）\n" +
+                        "播放：模块/芯片音乐流式解码（AudioTrack），容器音频走 ExoPlayer；" +
+                        "后台播放与 MediaSession 已接入。",
                     color = OrzColors.Muted,
                     fontSize = 11.sp
                 )
@@ -274,6 +284,14 @@ fun SettingsContent(
             text = "OrzMusic Android v$version · 数据来自 OrzGeeker/OrzMusic HTTP API",
             color = OrzColors.MutedDim,
             fontSize = 10.sp
+        )
+    }
+
+    if (showLicenses) {
+        LicensesDialog(
+            context = context,
+            versionName = version,
+            onDismiss = { showLicenses = false }
         )
     }
 }
