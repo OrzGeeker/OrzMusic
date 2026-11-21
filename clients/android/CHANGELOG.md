@@ -5,6 +5,18 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [0.8.1](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.8.0...android-v0.8.1) - 2026-11-21
+
+本次只换解码核心版本：`liborzaudio.so` 由 OrzAudioCore **1.3.0** 资产重建
+（23 个格式不变，`orz_build_info()` 变成 `orzcore-1.3.0-m1`，旧 WAV 缓存自动失效），
+并补上设备端冒烟测试。
+
+### 其他
+
+- test(android): 设备端冒烟测试验证 23 格式与 JNI 解码链路 ([e8f6d5d](https://github.com/OrzGeeker/OrzMusic/commit/e8f6d5d))
+- docs(android): 记录 OrzAudioCore 1.3.0 已发布的 Android 资产与升级流程 ([12d18be](https://github.com/OrzGeeker/OrzMusic/commit/12d18be))
+- chore(deps): 升级 OrzAudioCore 到 1.3.0 并用上游资产重建 liborzaudio.so ([ee43d7f](https://github.com/OrzGeeker/OrzMusic/commit/ee43d7f))
+
 ## [0.8.0](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.7.1...android-v0.8.0) - 2026-11-21
 
 ### 不兼容变更
