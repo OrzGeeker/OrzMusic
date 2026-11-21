@@ -19,11 +19,8 @@ set -euo pipefail
 #
 # 前置:audio-core-sdk.lock.json 里要有 androidAssets(资产发布后再写进去):
 #
-#   "androidAssets": {
-#     "asset": "OrzAudioCore-1.2.4-android-full.tar.gz",
-#     "sha256": "…",
-#     "abis": ["arm64-v8a", "armeabi-v7a"]
-#   }
+#   "androidAssets": "OrzAudioCore-1.3.0-android-full.tar.gz",
+#   "androidAssetsSha256": "…"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOCK="$ROOT/audio-core-sdk.lock.json"

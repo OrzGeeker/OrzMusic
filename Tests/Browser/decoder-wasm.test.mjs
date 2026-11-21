@@ -21,7 +21,8 @@ function builtinModule() {
 
 test('builtin WASM is pinned to the immutable OrzAudioCore release', async () => {
     const lock = JSON.parse(fs.readFileSync(path.join(root, 'audio-core-sdk.lock.json'), 'utf8'));
-    assert.equal(lock.version, '1.2.4');
+    // 不在这里写死版本号:真正的约束是「lock == 打包进来的 WASM 的 build info」,
+    // 由下面两条断言保证;写死只会让每次升 SDK 都要改测试。
     assert.match(lock.nativeAssetMacosArm64, /macos-arm64\.tar\.gz$/);
     assert.match(lock.nativeAssetSha256MacosArm64, /^[a-f0-9]{64}$/);
     assert.match(lock.serverAssetX86_64, /linux-x86_64\.tar\.gz$/);

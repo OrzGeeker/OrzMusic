@@ -1,7 +1,7 @@
 # WASM 增量输入可行性评估
 
 > 结论日期：2026-07-26  
-> SDK：OrzAudioCore 1.2.4，ABI v1.0  
+> SDK：OrzAudioCore 1.3.0，ABI v1.0  
 > 结论：停止 OrzMusic 生产实现；若未来指标达到门槛，先在 OrzAudioCore 建立新 ABI backlog。
 
 ## 结论

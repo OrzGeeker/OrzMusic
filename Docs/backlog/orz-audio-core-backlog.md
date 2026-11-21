@@ -6,7 +6,7 @@
 
 ## 当前基线
 
-- OrzMusic 已消费外置 OrzAudioCore SDK v1.2.4。
+- OrzMusic 已消费外置 OrzAudioCore SDK v1.3.0（含 Android 产物）。
 - 内嵌 decoder 源码与旧构建脚本已从 OrzMusic 移除。
 - C ABI v1、Swift 封装、Web/WASM 封装、manifest、full/lite WASM、缓存 fingerprint 和基础 CI 已落地。
 - OrzMusic 当前播放功能不依赖以下剩余任务；这些任务主要提升 SDK 独立发布质量、平台覆盖、安全和可观测性。
