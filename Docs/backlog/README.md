@@ -5,6 +5,7 @@
 | 文档 | 内容 |
 |:-----|:-----|
 | [orz-audio-core-backlog.md](orz-audio-core-backlog.md) | 不阻塞当前功能的 OrzAudioCore SDK 后续任务清单。 |
+| [android-pcm-streaming.md](android-pcm-streaming.md) | Android 从「整曲转 WAV」改为 `PcmStream` + `AudioTrack` 流式播放。**已实现**（含 Media3 `SimpleBasePlayer` 桥），待真机验收。 |
 | [web-client-split-evaluation.md](web-client-split-evaluation.md) | Web 与 Vapor 的目录/部署拆分评估。**结论:暂不做**(只拆目录拿不到收益,反而让部署变复杂);列了重开的触发条件。 |
 
 推进约定：

@@ -56,6 +56,10 @@ OrzMusic 目前有三条播放路径：
 | `wasmDecode` | `xm`、`mod`、`it`、`s3m`、`mo3`、`mtm`、`fc13`、`fc14`、`nsf`、`spc`、`sid`、`ym`、`sap`、`ahx`、`amd`、`rad`、`d00`、`hsc`、`v2m`、`bp`、`mid` | 服务端返回原始文件，浏览器 Worker 加载 OrzAudioCore WASM，通过 ABI v1 `orz_decoder_*` 接口解码并写入 AudioWorklet ring buffer。 |
 | `serverDecode` | `sc68`、压缩编码 `wav` | 服务端使用 OrzAudioCore 原生库或 ffmpeg fallback 生成 PCM WAV 缓存，再交给浏览器播放。 |
 
+> 从 Android 客户端起 `serverDecode` 是**兜底语义**而不是硬命令：客户端如果在本地
+> 编进了对应 decoder，就下 `/raw` 自己解（native-first），不再请求服务端转 WAV。
+> 契约与打包方式见 [`android-decoder-packaging.md`](android-decoder-packaging.md)。
+
 > `AudioFormat.playStrategy` 中 `wav` 的默认值是 `serverDecode`，但 `AudioEngine.resolveStreamStrategy()` 会读取 WAV 头：PCM/IEEE float 会被优化为 `directFile`，ADPCM/GSM 等压缩 WAV 才走 `serverDecode`。
 
 ## SDK 与应用层边界

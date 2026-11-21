@@ -25,12 +25,16 @@
 | `Resources/Public/audio/app.js` | UI 状态、`queue`/`queueIndex`/`activeList`、搜索、歌单 | `PlaybackQueue`(core)+ Compose 状态 |
 | `Resources/Public/audio/player.js` | `OrzAudioPlayer`:三种策略、WASM 初始化、播放/暂停/seek、Media Session、Wake Lock | `PlaybackPolicy`(core)+ `PlaybackController`(Media3) |
 | `Resources/Public/audio/orz-decoder-worker.js` | 加载 WASM、调 `orz_decoder_*`、渲染进 ring buffer | `OrzAudioCore`/`AudioDecoder`(audio-kit/JNI)+ `MediaCache` |
-| `Resources/Public/audio/orz-audio-worklet.js` | 消费 ring buffer、重采样、输出 | Media3/ExoPlayer(播 WAV) |
+| `Resources/Public/audio/orz-audio-worklet.js` | 消费 ring buffer、重采样、输出 | `PcmStream`(ring buffer)+ `AudioTrack`(流式);当前实现仍是「整曲转 WAV 交给 Media3」 |
 | `Resources/Public/audio/decoder-manifest.generated.js` | 格式清单(id/label/group) | `DecoderManifest.kt`(生成) |
 | `Sources/OrzAudioKit/` | Swift 对 C ABI 的封装 + fallback | `audio-kit` + `OrzAudioCore`/`AudioDecoder` |
 | `Docs/orz-audio-core.md` | SDK 边界:只解码,不负责队列/HTTP/策略 | 同左 |
 
 > 关键点:Web 端的 `app.js` 拥有队列,`player.js` 不拥有;
+
+> 许可证边界：`clients/android/` 整体 GPL-3.0-or-later（`liborzaudio.so` 静态链接 GPL
+> 解码器），服务端与 Web 端仍是 Apache-2.0。见
+> [`../../Docs/android-decoder-packaging.md`](../../Docs/android-decoder-packaging.md)。
 > `player.js` 拥有“播放策略”,SDK 不拥有。Android 也按这条线拆。
 
 ---
@@ -64,7 +68,9 @@
 └──────────────────────────────────────────────────────────────┘
 
 Platform Adapter(Media3 / AVFoundation / Web Audio)与 SDK 平级:
-它消费 SDK 产出的本地 WAV,或直接播放 directFile / serverDecode 的 URL。
+它消费 SDK 产出的 PCM(Android 目标:`PcmStream` + `AudioTrack`;
+当前实现:`decodeToWav` 落盘后交给 Media3),或直接播放 directFile / serverDecode 的 URL。
+流式改造进度见 [`../../Docs/backlog/android-pcm-streaming.md`](../../Docs/backlog/android-pcm-streaming.md)。
 ```
 
 **硬约束**
@@ -161,7 +167,8 @@ Android:Media3;Apple:AVPlayer/AVAudioEngine;Web:`<audio>`/AudioWorklet。
 
 - 单一事实来源(正式):OrzAudioCore `decoder-manifest.json`(含每个格式的 `profiles`);
 - 当前 Android proto:`clients/android/audio-kit/native/decoder-profile.json`
-  (`android-openmpt-builtin` 子集,等迁到 SDK 后改用上游 manifest);
+  (`android-full`,23 个格式;资产由上游 Android job 产出,见
+  `Docs/android-decoder-packaging.md`);
 - 生成器:`clients/android/scripts/gen-core-manifest.py`
 - 产物:`core/.../DecoderManifest.kt`
 - 与 Web 的 `decoder-manifest.generated.js`、Swift 的
@@ -218,7 +225,7 @@ SDK/Android/
 ### 3.6 `CacheKey`(缓存 + 指纹)
 
 - raw:`raw/<songId>.<format>`
-- WAV:`pcm/<songId>-<decoderNamespace>.wav`
+- WAV:`pcm/<songId>-<decoderNamespace>.wav`(流式改造后不再使用,仅回退路径)
 - `decoderNamespace` 来自 `decoder-profile.json`(OrzAudioCore 版本 + libopenmpt 版本)。
 - 这是服务端把 `orz_build_info()` fingerprint 写进 PCM 缓存键的客户端等价物:
   升级 SDK 后旧 WAV 自动失效。

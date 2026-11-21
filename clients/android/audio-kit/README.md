@@ -20,13 +20,23 @@
 - 坐标:`com.orzgeeker:audio-core-android:1.2.4`
 - 产物:AAR + sources jar + POM(含 checksums)
 - JNI:C ABI 1.0;`.so` 在 `src/main/jniLibs/{arm64-v8a,armeabi-v7a}/liborzaudio.so`
-- 格式 profile:`android-openmpt-builtin`(xm/mod/it/s3m/mo3/mtm/fc13/fc14/ym/mid/bp)
+- 许可证:**GPL-3.0-or-later**(静态链接 GPL 解码器;见
+  [`../THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md))
+- 格式 profile:`android-full`(23 个格式)
+- 仓库里的 `liborzaudio.so` 由上游 `OrzAudioCore-<ver>-android-full` 资产里的
+  `libOrzAudioCore.a`(23 个格式)+ 本模块的 JNI 胶水链接而成:
+  `make sdk-android` 装资产,`scripts/build-android.sh` 只编胶水(秒级)。
+  没有资产时退回 vendored 源码 + 本地 libopenmpt(13 个格式)。
+- 能力判定**始终**以运行时探测为准:`OrzAudioCore.nativeFormats`
+  (← `orz_get_format_count/info`)∩ 生成的清单 = `OrzAudioCore.supportedFormats`
 - 公开 API:
   - `OrzAudioCore.createDecoder(data, format, subsong)` → `AudioDecoder`
-  - `AudioDecoder.renderF32 / seekMs / selectSubsong / close`
-  - `OrzAudioCore.probe / supportedFormats / cacheFingerprint / buildInfo`
+  - `AudioDecoder.renderF32 / seekMs / selectSubsong / cancel / close`
+  - `PcmStream(decoder)`:解码线程 + 有界 ring buffer,给 `AudioTrack` 流式播放用
+    (`read / seekTo / selectSubsong / isEnded / positionMs`)
+  - `OrzAudioCore.probe / nativeFormats / supportedFormats / cacheFingerprint / buildInfo`
   - `WavFile.write(decoder, output)`(对齐 Swift `WAVFile`)
-  - `OrzAudioCore.decodeToWav(...)`(便利层)
+  - `OrzAudioCore.decodeToWav(...)`(便利层;**仅回退用**,正式路径是 `PcmStream`)
 - manifest:`DecoderManifest.generated.kt` 由上游 `decoder-manifest.json` + Android profile 生成
   (`clients/android/audio-kit/scripts/gen-manifest.py`),不再手写格式白名单。
 

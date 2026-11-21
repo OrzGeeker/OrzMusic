@@ -58,22 +58,33 @@
 | `wasmDecode`(模块 / 芯片音乐) | ✅ 已编入的格式原生解码(OrzAudioCore + libopenmpt),其余回落网页播放器 |
 
 `wasmDecode` 的服务端按设计只给原始文件。本项目用 **NDK 把
-[OrzAudioCore](https://github.com/OrzGeeker/OrzAudioCore) + libopenmpt 编成
-`liborzaudio.so`**,JNI 解成 16-bit PCM WAV,再交给 ExoPlayer:
+[OrzAudioCore](https://github.com/OrzGeeker/OrzAudioCore) 编成 `liborzaudio.so`**,
+JNI 拿到 float PCM 后交给平台播放器。
+
+目标形态(见 [`Docs/android-decoder-packaging.md`](../../Docs/android-decoder-packaging.md)):
+`android-full` profile 覆盖全部 23 个格式,`serverDecode` 只作为旧客户端与
+需要 ROM 的 SID 曲目的兜底。
 
 ```
 /api/songs/:id/raw → cache/raw/<id>.mod
-        ↓ JNI (OrzAudioCore + libopenmpt)
-   cache/pcm/<id>.wav (48kHz stereo PCM)
+        ↓ JNI (OrzAudioCore android-full)
+   PcmStream(解码线程 + 2 秒缓冲)
         ↓
-     ExoPlayer
+   AudioTrack 流式输出(float PCM)
 ```
 
-已编入:`xm` `mod` `it` `s3m` `mo3` `mtm` `fc13` `fc14`(libopenmpt)
-+ `ym` `mid` `bp`(OrzAudioCore builtin)。
+播放服务里的那个 `Player` 是 `OrzPlaybackPlayer`（Media3 `SimpleBasePlayer`）：
+模块/芯片音乐走上面的本地流式管线，容器音频走内部 ExoPlayer。两者对
+`MediaSession` 是同一个播放器，所以通知栏 / 锁屏 / 耳机线控 / 后台播放行为一致。
+首播不再等全曲解码，也不再往 `cache/pcm/` 写 WAV。
 
-`nsf` `spc` `sid` `ahx` `sap` `v2m` `rad` `d00` `hsc` `amd` 等没有编进来,
-点播时会明确提示并给出「在网页播放器打开」。
+> 仓库里的 `.so` 已经是 `android-full` 构建(23 个格式,arm64 5.1MB / armv7 4.3MB),
+> 由上游 `OrzAudioCore-<ver>-android-full` 资产的静态库 + 本地 JNI 胶水链接而成:
+> `make sdk-android` 装资产 → `audio-kit/scripts/build-android.sh` 只编胶水。
+>
+> 判断依据**只有运行时探测**:`OrzAudioCore.supportedFormats` 会拿
+> `orz_get_format_count()` / `orz_get_format_info()` 与生成的清单求交集,
+> 所以清单先行、二进制后到也不会播错。
 
 ### 重新编译 native 库
 
@@ -87,11 +98,25 @@ bash clients/android/audio-kit/scripts/build-android.sh          # 两个 ABI
 
 细节、版本约束、许可证见 [`audio-kit/native/README.md`](audio-kit/native/README.md)。
 
+## 许可证
+
+本目录(`app/` `core/` `audio-kit/`)按 **GPL-3.0-or-later** 分发,全文见
+[`LICENSE`](LICENSE)。对外 SDK `com.orzgeeker:audio-core-android` 同样是
+GPL-3.0-or-later:它静态链接了 `sidplayfp` / `sc68` / `asap` 等 GPL 解码器。
+
+第三方组件与源码获取方式见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
+两条硬约束:
+
+- 分发 APK/AAB 必须同时提供**同一 tag 的源码**与 native 重建脚本(GPLv3 §6)。
+- **不要**在 App 里加签名校验 / Play Integrity 这类防篡改 —— 会被解释为阻止安装
+  修改版,违反 GPLv3 §6 的反锁定条款。`scripts/store-check.sh` 会挡。
+
 ## 架构
 
 分层与跨端复用(Web / Apple / Desktop)见
 [**docs/architecture.md**](docs/architecture.md)。
 
+- 设置页里有「开源许可 / 源码」入口（GPLv3 §6），内容随 APK 打包
 - `core/` —— **平台无关**(纯 Kotlin):DTO / `OrzMusicTransport` /
   `PlaybackQueue` / `PlaybackPolicy` / `OrzAudioPlayer` 契约 /
   `DecoderManifest` / `CacheKey`
@@ -226,8 +251,10 @@ http://192.0.2.10:8080/      # 局域网调试(清单里允许了 cleartext)
 
 ## 已知限制
 
-- **其余芯片格式**(`nsf` / `spc` / `sid` / `ahx` / `sap` / `v2m` / adplug 系)没有编进
-  native 库,点播时回落到「网页播放器」。已编入的格式见上面的表。
+- **未编入的芯片格式**(`nsf` / `spc` / `sid` / `ahx` / `sap` / `v2m` / adplug 系)在
+  `android-full` profile 重建之前会提示「没有编进原生解码器」并回落到「网页播放器」。
+  运行时真相以 `OrzAudioCore.supportedFormats` 为准,见
+  [`Docs/android-decoder-packaging.md`](../../Docs/android-decoder-packaging.md)。
 - 歌单已支持「保存当前队列 / 加载 / 删除」,但还没有改名和逐首排序。
 - 专辑页未做:后端当前库 `totalAlbums = 0`,没有真实数据可验。
 - 没有登录/账号:后端本身无鉴权。

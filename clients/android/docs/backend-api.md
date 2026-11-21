@@ -9,17 +9,23 @@
 
 ## 1. 客户端怎么消费三种播放策略
 
-当前客户端的处理:
+当前客户端的处理（**native-first**：本机能解就不找服务端）：
 
-- `directFile` / `serverDecode` → Media3/ExoPlayer
-- `wasmDecode` 且格式已编入 → 下载 raw → JNI 解成 WAV → ExoPlayer
-- `wasmDecode` 且格式未编入 → 明确提示 + 「在网页播放器打开」
+- `directFile` → Media3/ExoPlayer
+- `serverDecode` 且本机没装对应 decoder → Media3/ExoPlayer（服务端转 WAV）
+- `serverDecode` 且本机装了 → 下载 `/raw` 本地解（不再请求转码）
+- `wasmDecode` 且本机装了 → 下载 `/raw` → JNI 解 PCM
+- `wasmDecode` 且本机没装 → 明确提示 + 「在网页播放器打开」
+
+「本机装了没有」以**运行时探测**为准（`OrzAudioCore.nativeFormats` ←
+`orz_get_format_count/info` ∩ 生成的清单），不是读编译期常量。
+打包与许可证见 [`../../Docs/android-decoder-packaging.md`](../../Docs/android-decoder-packaging.md)。
 
 ### 原生解码:方案 A 已落地
 
 | 方案 | 状态 |
 |---|---|
-| **A. NDK 集成 OrzAudioCore** | ✅ 已实现。`liborzaudio.so` 内含 OrzAudioCore 1.2.4 + libopenmpt 0.8.0,通过 JNI 把模块文件解成 16-bit PCM WAV |
+| **A. NDK 集成 OrzAudioCore** | ✅ 已实现。`liborzaudio.so` 内含 OrzAudioCore 1.2.4 + libopenmpt 0.8.0,解码路径正从「整曲解成 16-bit PCM WAV」改为 `PcmStream` + `AudioTrack` 流式（见 [`../../Docs/backlog/android-pcm-streaming.md`](../../Docs/backlog/android-pcm-streaming.md)） |
 | B. 后端强制服务端解码(`?decode=server`) | 备选,未采用 |
 
 已编入的格式:
@@ -30,7 +36,9 @@
 | OrzAudioCore builtin | `ym` `mid` `bp` |
 
 未编入(`nsf` / `spc` / `sid` / `ahx` / `sap` / `v2m` / `rad` / `d00` / `hsc` / `amd`)
-仍回落到网页播放器。注意 `sc68` 是 `serverDecode`,服务端已经转 WAV,不需要本地解码。
+当前回落到网页播放器。`decoder-profile.json` 已切到 `android-full`（23 格式），
+等 `liborzaudio.so` 重建后这些格式转为本地解码，`sc68` 也随之不再需要服务端转 WAV；
+重建之前，运行时探测会让它们继续走「服务端转码」或「网页播放器」，不会播错。
 
 产物体积与约束:
 

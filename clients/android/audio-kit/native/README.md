@@ -38,9 +38,22 @@ native/
 |---|---|
 | libopenmpt | `xm` `mod` `it` `s3m` `mo3` `mtm` `fc13` `fc14` |
 | OrzAudioCore builtin | `ym` `mid` `bp` |
-| 不编进来(走网页播放器) | `nsf` `spc` `sid` `sc68`(服务端已转 WAV,`serverDecode`)`ahx` `sap` `v2m` `rad` `d00` `hsc` `amd` 等 |
+| 目标 profile(`android-full`) | 上面 11 个 + `nsf` `spc` `sid` `sc68` `sap` `ahx` `thx` `v2m` `rad` `d00` `hsc` `amd` = 23 |
 
-Kotlin 侧的 `NativeDecoder.supports(format)` 与这张表保持一致。
+`audio-kit/native/decoder-profile.json` 是 `android-full`(23 格式),仓库里提交的
+`liborzaudio.so` 也已经用上游 `libOrzAudioCore.a`(23 格式)重建过。能力判定仍以
+**运行时探测**为准:
+
+```
+OrzAudioCore.nativeFormats              ← orz_get_format_count/info
+OrzAudioCore.supportedFormats           ← 生成的清单 ∩ nativeFormats
+```
+
+所以二进制与清单不同步时只会让格式被静默隐藏,不会播错(重新构建时
+`make sdk-android` + `build-android.sh` 会把两者对齐)。
+
+构建方式见 [`../../../Docs/android-decoder-packaging.md`](../../../Docs/android-decoder-packaging.md)
+和 `clients/android/audio-kit/README.md` 的「构建 / 发布」。
 
 ## 重新编译
 
