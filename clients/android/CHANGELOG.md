@@ -5,6 +5,12 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [0.8.2](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.8.1...android-v0.8.2) - 2026-11-21
+
+### 修复
+
+- fix(android): 格式 id 改走 MediaMetadata.extras,模块音乐不再被丢给 ExoPlayer ([3a5dff5](https://github.com/OrzGeeker/OrzMusic/commit/3a5dff5))
+
 ## [0.8.1](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.8.0...android-v0.8.1) - 2026-11-21
 
 本次只换解码核心版本：`liborzaudio.so` 由 OrzAudioCore **1.3.0** 资产重建
