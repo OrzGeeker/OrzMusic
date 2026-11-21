@@ -2,6 +2,7 @@ package com.jokerhub.orzmusic.android.player
 
 import android.content.Context
 import android.os.Looper
+import android.util.Log
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
@@ -220,6 +221,13 @@ class OrzPlaybackPlayer(
         val decodable = format != null && OrzAudioCore.supports(format)
 
         isNative = decodable && filePath != null
+        // 路由必须能在 logcat 里看见：0.8.1 的「模块音乐全被丢给 ExoPlayer」就是在
+        // 设备上完全静默，只能靠抓 ExoPlayer 的堆栈反推。
+        Log.i(
+            TAG,
+            if (isNative) "native format=$format file=${File(filePath!!).name}"
+            else "exo    uri=${uri?.toString()?.take(120)} format=$format decodable=$decodable"
+        )
         if (isNative) {
             val playback = NativePcmPlayback(
                 file = File(filePath!!),
@@ -315,6 +323,7 @@ class OrzPlaybackPlayer(
     }
 
     private companion object {
+        private const val TAG = "OrzPlayback"
         const val POLL_INTERVAL_MS = 250L
 
         val AVAILABLE_COMMANDS: Player.Commands = Player.Commands.Builder()

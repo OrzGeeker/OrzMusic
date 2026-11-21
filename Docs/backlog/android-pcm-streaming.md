@@ -103,6 +103,21 @@ class OrzPlaybackPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLoope
 - 曲目结束：`PcmStream.isEnded && read() == 0` 时置 `STATE_ENDED`，让 MediaSession 触发
   `onEnded` → ViewModel `playNext()`。
 
+## 已知坑：格式 id 过不了 MediaSession
+
+原生路由的判定依赖 `OrzPlaybackPlayer` 从 `MediaItem` 读到的格式 id。**别把它只放在
+`MediaItem.Builder.setTag()` 上**：Media3 的 `MediaItem.LocalConfiguration.toBundle()`
+不序列化 tag（只写 uri/mimeType/drm/ads），而
+`PlaybackController → MediaController → PlaybackService` 这一跳传的就是 Bundle。
+0.8.1 就是因此在真机上把所有模块音乐判成「本机解不了」，`.mod`/`.sc68` 被丢给
+ExoPlayer 报 `UnrecognizedInputFormatException: Source error`。
+
+现行做法（0.8.2）见 `app/.../player/MediaItemFormat.kt`：格式 id 同时写进
+`MediaMetadata.extras`，读取顺序 tag → extras → genre → URI 扩展名
+（`MediaCache` 落盘是 `raw/<songId>.<format>`）。
+回归覆盖：单测 `MediaItemFormatTest`（`toBundle()/fromBundle()` 复现那一跳）+
+设备端 `PlaybackSessionNativeRoutingTest`（走生产链路播 `.mod`）。
+
 ## 验收清单（真机）
 
 - [ ] `xm` / `mod` 首播 < 500ms（旧路径数秒）
