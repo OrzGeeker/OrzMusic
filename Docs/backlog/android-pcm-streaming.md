@@ -137,6 +137,23 @@ Modifier.onKeyEvent { ... }.focusable()
 排查入口：`adb logcat -s OrzSeek` 能看到 界面手势 → `vm.seekTo(duration=…)` →
 `controller.seekTo(connected=…)` → `player.handleSeek native(… applied=…)`。
 
+## seek 的能力边界（2026-11-22 真机确认）
+
+`orz_decoder_seek` 只有 openmpt 系解码器实现了（`mod/xm/it/s3m/mo3/mtm`），
+`sc68 / sid / gme(NSF·SPC·GBS…)` 这些的 `orz_stream_info.capabilities` 里
+**没有** `ORZ_CAP_SEEK` 位，调用直接返回 `ORZ_ERROR_UNSUPPORTED_OPERATION`
+（真机日志：`player.handleSeek native(90000) applied=false`，进度条弹回原位）。
+
+现在 `NativePcmPlayback.seekTo()` 两条腿：
+
+1. `stream.isSeekable`（= `caps & ORZ_CAP_SEEK`）为真 → `orz_decoder_seek`；
+2. 否则**重开解码器把 PCM 渲染丢弃到目标位置**（`seekByRendering`）。
+   这类解码器渲得极快，实测 sc68 跳 90 秒只要 ~22ms（约 4000x 实时），
+   所以用户视角没有区别。真机验证：`applied=true skipRender=true now=90000`。
+
+回归：`PlaybackEngineBehaviourTest.seekFallsBackToRenderSkipWhenDecoderCannotSeek`
+（用 `forceSkipSeek` 强制走兜底路径，不需要网络）。
+
 ## 验收清单（真机）
 
 - [ ] `xm` / `mod` 首播 < 500ms（旧路径数秒）

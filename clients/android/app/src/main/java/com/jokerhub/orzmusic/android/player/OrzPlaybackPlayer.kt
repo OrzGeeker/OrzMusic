@@ -175,7 +175,11 @@ class OrzPlaybackPlayer(
         if (isNative) {
             val ok = native?.seekTo(positionMs) ?: false
             nativePositionMs = positionMs
-            Log.i(SEEK_TAG, "player.handleSeek native($positionMs) applied=$ok now=${native?.positionMs}")
+            Log.i(
+                SEEK_TAG,
+                "player.handleSeek native($positionMs) applied=$ok " +
+                    "skipRender=${native?.lastSeekUsedSkip} now=${native?.positionMs}"
+            )
         } else {
             exo.seekTo(positionMs)
             Log.i(SEEK_TAG, "player.handleSeek exo($positionMs)")

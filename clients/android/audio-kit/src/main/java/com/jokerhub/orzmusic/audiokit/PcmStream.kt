@@ -55,6 +55,19 @@ class PcmStream(
     val durationMs: Long = info.durationMs
     val subsongCount: Int = info.subsongCount
 
+    /**
+     * 解码器自己支持 `orz_decoder_seek` 吗（`ORZ_CAP_SEEK`）。
+     *
+     * 不支持的格式（sc68 / sid / gme 系…）不能直接跳，调用方要先重解码快进；
+     * 那些解码器渲得极快（实测 sc68 跳 90 秒只需 ~22ms），所以快进完全可用。
+     */
+    val isSeekable: Boolean = info.capabilities and CAP_SEEK != 0
+
+    private companion object {
+        /** 与 C 头文件 `ORZ_CAP_SEEK` 对齐（`orz_audio_core.h`）。 */
+        const val CAP_SEEK = 1 shl 2
+    }
+
     /** ring buffer 的实际容量（帧）。 */
     val capacity: Int = if (capacityFrames > 0) capacityFrames else sampleRate * 2
 

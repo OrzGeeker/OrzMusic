@@ -98,6 +98,79 @@ class PlaybackEngineBehaviourTest {
         assertTrue("seek 之后位置不前进（$p1）", awaitUntil(5_000) { snapshot().positionMs > p1 + 300 })
     }
 
+    /**
+     * 模拟在进度条上拖动：短时间内连续发很多次 seek。
+     *
+     * 真实故障现象：拖动时进度条跟手，松手后**立刻弹回原位**、音乐也从老位置继续 ——
+     * 说明播放器拒绝了 seek（`PcmStream.seekTo` 超时 → 位置没更新）。
+     */
+    @Test
+    fun rapidDragSeeksLandOnLastTarget() {
+        open()
+        playFile("mod", mod(patterns = 8), "drag-mod")
+        assertTrue("没有开始播放：${errors.toList()}", awaitUntil(20_000) { snapshot().playing })
+        Thread.sleep(1_000)
+
+        val targets = (0 until 30).map { 5_000L + it * 1_000L }
+        for (t in targets) {
+            instrumentation.runOnMainSync { player.seekTo(t) }
+            Thread.sleep(10)
+        }
+        Thread.sleep(1_500)
+
+        val final = snapshot().positionMs
+        println("DRAG lastTarget=${targets.last()} final=$final")
+        assertEquals("拖动后报错：${errors.toList()}", emptyList<String>(), errors.toList())
+        assertTrue(
+            "松手后没落在最后的目标 ${targets.last()}（实际 $final，等于回到原位）",
+            final >= targets.last() - 2_000 && final <= targets.last() + 4_000
+        )
+    }
+
+    /**
+     * 解码器不支持 `ORZ_CAP_SEEK` 的格式（sc68 / sid / gme 系）走「重解码快进」。
+     *
+     * 真机上 sc68 的 `orz_decoder_seek` 返回不支持 → 进度条弹回原位、音乐不跳。
+     * 这里用 `forceSkipSeek` 强制走同一条兜底路径（MOD 本身支持 seek，正好能验证
+     * 兜底路径的正确性），并断言跳转后位置落在目标上、继续往前走。
+     */
+    @Test
+    fun seekFallsBackToRenderSkipWhenDecoderCannotSeek() {
+        val file = File(context.cacheDir, "raw/skipseek-mod.mod")
+        file.parentFile?.mkdirs()
+        file.writeBytes(mod(patterns = 8))
+        tempFiles += file
+
+        val states = java.util.Collections.synchronizedList(mutableListOf<NativePcmPlayback.State>())
+        val playback = NativePcmPlayback(
+            file = file,
+            format = "mod",
+            onSamples = { _, _, _ -> },
+            onState = { state, _ -> states += state },
+            forceSkipSeek = true
+        )
+        try {
+            playback.prepare()
+            assertTrue("准备超时：$states", awaitUntil(20_000) { states.contains(NativePcmPlayback.State.READY) })
+            playback.play()
+            Thread.sleep(800)
+
+            val target = 30_000L
+            val applied = playback.seekTo(target)
+            Thread.sleep(700)
+            println("SKIPSEEK applied=$applied usedSkip=${playback.lastSeekUsedSkip} pos=${playback.positionMs}")
+
+            assertTrue("重解码快进没生效（applied=$applied）", applied)
+            assertTrue("没走重解码快进这条路", playback.lastSeekUsedSkip)
+            assertTrue(
+                "跳转后位置不在目标附近（pos=${playback.positionMs}）",
+                playback.positionMs >= target - 1_000 && playback.positionMs <= target + 3_000
+            )
+        } finally {
+            playback.release()
+        }
+    }
+
     @Test
     fun nativePlaybackFeedsVisualizerBus() {
         VisualizerBus.reset()
