@@ -5,6 +5,21 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [0.8.3](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.8.2...android-v0.8.3) - 2026-11-22
+
+真机上量了四项（PICO A8110）：seek `1530 → 30000 → 30786ms` 正常、声场峰值 `0.419`、
+首播 `play→playing=140ms`、切歌后无 `orz-pcm*` / `orz-native*` 残留线程 —— 解码与播放
+引擎都没问题。本次修的是交互与观感。
+
+### 修复
+
+- fix(android): 进度条支持射线落点确认，声场柱快起慢落并放大 ([667d1ae](https://github.com/OrzGeeker/OrzMusic/commit/667d1ae))
+
+### 其他
+
+- chore(android): 播放路由写进 logcat，并记录 MediaSession 丢 tag 的坑 ([c9677e8](https://github.com/OrzGeeker/OrzMusic/commit/c9677e8))
+- ci(android): 预热并缓存 Robolectric 的 android-all，避免 MavenArtifactFetcher 抽风 ([42b61e0](https://github.com/OrzGeeker/OrzMusic/commit/42b61e0))
+
 ## [0.8.2](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.8.1...android-v0.8.2) - 2026-11-21
 
 ### 修复
