@@ -169,27 +169,30 @@ class NativePcmPlayback(
         sink?.pause()
     }
 
-    fun seekTo(positionMs: Long) {
-        val createdStream = stream ?: return
+    /** @return 解码器是否真的接受了这次 seek（`false` 时位置不动）。 */
+    fun seekTo(positionMs: Long): Boolean {
+        val createdStream = stream ?: return false
         val target = positionMs.coerceAtLeast(0L)
         val createdSink = sink
-        if (createdSink != null) {
-            // flush 只能在 pause 之后；先暂停再清空，避免把还在播的数据一起丢掉。
-            val wasPlaying = playing
-            playing = false
-            createdSink.pause()
-            createdSink.flush()
-            if (createdStream.seekTo(target)) {
-                positionBaseMs = target
-                headBaseFrames = createdSink.playedFrames
-            }
-            if (wasPlaying) {
-                playing = true
-                createdSink.play()
-            }
-        } else {
+        if (createdSink == null) {
             positionBaseMs = target
+            return false
         }
+        // flush 只能在 pause 之后；先暂停再清空，避免把还在播的数据一起丢掉。
+        val wasPlaying = playing
+        playing = false
+        createdSink.pause()
+        createdSink.flush()
+        val ok = createdStream.seekTo(target)
+        if (ok) {
+            positionBaseMs = target
+            headBaseFrames = createdSink.playedFrames
+        }
+        if (wasPlaying) {
+            playing = true
+            createdSink.play()
+        }
+        return ok
     }
 
     fun selectSubsong(index: Int) {

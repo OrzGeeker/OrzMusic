@@ -3,6 +3,7 @@ package com.jokerhub.orzmusic.android.player
 import android.content.ComponentName
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -122,7 +123,10 @@ class PlaybackController(context: Context) : OrzAudioPlayer {
     }
 
     override fun seekTo(positionMs: Long) {
-        withController { it.seekTo(positionMs.coerceAtLeast(0L)) }
+        val target = positionMs.coerceAtLeast(0L)
+        // 有 controller 才是真发出去;没有时 withController 只是排队,查日志能看出来。
+        Log.i(SEEK_TAG, "controller.seekTo($target) connected=${controller != null}")
+        withController { it.seekTo(target) }
     }
 
     override fun release() {

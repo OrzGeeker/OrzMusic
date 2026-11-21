@@ -6,6 +6,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import android.util.Log
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.hoverable
@@ -60,6 +61,8 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -85,6 +88,8 @@ import androidx.tv.material3.CardColors
 import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.CardScale
 import androidx.tv.material3.Text
+import com.jokerhub.orzmusic.android.RayPointer
+import com.jokerhub.orzmusic.android.player.SEEK_TAG
 import com.jokerhub.orzmusic.core.model.Song
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -945,25 +950,44 @@ fun SeekBar(
     // 射线/鼠标的横向落点（0..1）。-1 表示这次没有任何指针悬停过，
     // 纯 D-pad 用户据此退回只看左右键。
     var pointerFraction by remember { mutableFloatStateOf(-1f) }
+    // 控件在窗口里的位置：射线坐标是窗口坐标系，要换算成控件内部比例。
+    var barLeft by remember { mutableFloatStateOf(0f) }
+    var barWidth by remember { mutableFloatStateOf(0f) }
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(32.dp)
+            .onGloballyPositioned { coords ->
+                barLeft = coords.positionInWindow().x
+                barWidth = coords.size.width.toFloat()
+            }
             .focusOnHover(focus)
-            .focusable()
+            // ⚠️ onKeyEvent 必须在 focusable 之前：Compose 把按键冒泡给
+            // 「焦点节点的祖先 modifier」，反过来写（focusable().onKeyEvent{}）
+            // 处理器在焦点节点内部，收不到任何按键 —— 0.8.2 的左右键 ±5s 就是这样失效的。
             .onKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
                 when (event.key) {
                     Key.DirectionLeft -> { onSeekBy(-5_000); true }
                     Key.DirectionRight -> { onSeekBy(5_000); true }
-                    // 射线指到哪，确认就跳到哪
+                    // 射线指到哪，确认就跳到哪。优先读 RayPointer（窗口坐标，
+                    // hover 一发生就有），退回本控件自己跟踪的指针比例。
                     Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
-                        val target = pointerFraction
-                        if (target < 0f) false else { onSeek(target); true }
+                        val target = RayPointer.fractionX(barLeft, barWidth)
+                            ?: pointerFraction.takeIf { it >= 0f }
+                        if (target == null) {
+                            Log.i(SEEK_TAG, "confirm on seekbar ignored: no ray position")
+                            false
+                        } else {
+                            Log.i(SEEK_TAG, "confirm on seekbar -> fraction=$target")
+                            onSeek(target)
+                            true
+                        }
                     }
                     else -> false
                 }
             }
+            .focusable()
             .pointerInput(Unit) {
                 awaitPointerEventScope {
                     while (true) {
@@ -1011,18 +1035,6 @@ fun SeekBar(
                     cornerRadius = CornerRadius(radius, radius)
                 )
             }
-            // 射线悬停位置：让「确认键会跳到这里」这件事看得见。
-            val hover = pointerFraction
-            if (hover >= 0f) {
-                val markerX = (trackWidth * hover).coerceIn(0f, trackWidth)
-                drawLine(
-                    color = OrzColors.Mint.copy(alpha = 0.45f),
-                    start = Offset(markerX, y - size.height / 2f),
-                    end = Offset(markerX, y + size.height / 2f),
-                    strokeWidth = 2.dp.toPx()
-                )
-            }
-
             val thumbRadius = 6.dp.toPx()
             val thumbCenter = Offset(
                 progress.coerceIn(thumbRadius, trackWidth - thumbRadius),

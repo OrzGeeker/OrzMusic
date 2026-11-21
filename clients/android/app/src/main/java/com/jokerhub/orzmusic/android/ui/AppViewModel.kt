@@ -1,5 +1,6 @@
 package com.jokerhub.orzmusic.android.ui
 
+import android.util.Log
 import android.app.Application
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
@@ -8,6 +9,7 @@ import com.jokerhub.orzmusic.android.data.ApiFactory
 import com.jokerhub.orzmusic.android.data.DEFAULT_SERVER_URL
 import com.jokerhub.orzmusic.android.data.MusicRepository
 import com.jokerhub.orzmusic.android.player.MediaCache
+import com.jokerhub.orzmusic.android.player.SEEK_TAG
 import com.jokerhub.orzmusic.android.player.PlaybackCommandBridge
 import com.jokerhub.orzmusic.android.player.PlaybackController
 import com.jokerhub.orzmusic.android.player.RuntimeDecoderManifest
@@ -528,7 +530,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val playbackPositionMs: Long get() = playback.positionMs
     val playbackDurationMs: Long get() = playback.durationMs
 
-    fun seekTo(positionMs: Long) = playback.seekTo(positionMs.coerceAtLeast(0L))
+    fun seekTo(positionMs: Long) {
+        // 界面拖动/点击/射线确认最终都汇到这里。头显里「拖了没反应」时先看这行。
+        Log.i(SEEK_TAG, "vm.seekTo($positionMs) duration=${playback.durationMs}")
+        playback.seekTo(positionMs.coerceAtLeast(0L))
+    }
 
     fun seekBy(deltaMs: Long) {
         val duration = playback.durationMs

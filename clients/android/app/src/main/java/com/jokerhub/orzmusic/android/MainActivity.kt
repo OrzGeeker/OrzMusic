@@ -19,9 +19,23 @@ import com.jokerhub.orzmusic.android.ui.OrzTheme
 import com.jokerhub.orzmusic.android.ui.WindowFocusEvents
 
 /** Pico 射线/指针最后落点（Activity 窗口坐标）。 */
-private object PointerBridge {
-    @Volatile var x: Float = -1f
-    @Volatile var y: Float = -1f
+/**
+ * 射线/鼠标在窗口内的最新落点。
+ *
+ * `dispatchGenericMotionEvent` / `dispatchHoverEvent` 每收到一次 hover 就更新 ——
+ * 比让每个控件自己从 Compose 指针流里捞位置可靠：Pico 的扳机是「先 hover 再发
+ * DPAD_CENTER」（见 [MainActivity.confirmAtPointer]），控件在处理按键时读这里
+ * 就知道「射线现在指着我的哪个位置」。
+ */
+internal object RayPointer {
+    @Volatile
+    var x: Float = -1f
+        private set
+
+    @Volatile
+    var y: Float = -1f
+        private set
+
     val valid: Boolean get() = x >= 0f && y >= 0f
 
     fun update(nx: Float, ny: Float) {
@@ -29,6 +43,13 @@ private object PointerBridge {
             x = nx
             y = ny
         }
+    }
+
+    /** 落点换算成横向控件内部的 0..1 比例；没 hover 过或落在控件外返回 null。 */
+    fun fractionX(leftPx: Float, widthPx: Float): Float? {
+        if (!valid || widthPx <= 0f) return null
+        val f = (x - leftPx) / widthPx
+        return if (f.isFinite() && f >= 0f && f <= 1f) f else null
     }
 }
 
@@ -70,7 +91,7 @@ class MainActivity : ComponentActivity() {
 
     /** 记录 Pico 射线/触摸最后落点，供确认键做 hover + DPAD_CENTER。 */
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        PointerBridge.update(ev.x, ev.y)
+        RayPointer.update(ev.x, ev.y)
         return super.dispatchTouchEvent(ev)
     }
 
@@ -127,7 +148,7 @@ class MainActivity : ComponentActivity() {
 
     override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
         if ((event.source and InputDevice.SOURCE_JOYSTICK) == 0) {
-            PointerBridge.update(event.x, event.y)
+            RayPointer.update(event.x, event.y)
             return super.dispatchGenericMotionEvent(event)
         }
         val now = SystemClock.uptimeMillis()
@@ -170,12 +191,12 @@ class MainActivity : ComponentActivity() {
      * dispatch 返回 true，但 Compose 的 clickable 不会触发 onClick。
      */
     private fun confirmAtPointer() {
-        if (!PointerBridge.valid) {
+        if (!RayPointer.valid) {
             sendTapKey(KeyEvent.KEYCODE_DPAD_CENTER)
             return
         }
-        val x = PointerBridge.x
-        val y = PointerBridge.y
+        val x = RayPointer.x
+        val y = RayPointer.y
         val now = SystemClock.uptimeMillis()
         // 先发一次 hover，让 focusOnHover 把 Compose 焦点移到指针下的控件；
         // 再发 DPAD_CENTER 激活它。直接合成 DOWN/UP 在 Pico 的虚拟触摸屏上

@@ -118,6 +118,25 @@ ExoPlayer 报 `UnrecognizedInputFormatException: Source error`。
 回归覆盖：单测 `MediaItemFormatTest`（`toBundle()/fromBundle()` 复现那一跳）+
 设备端 `PlaybackSessionNativeRoutingTest`（走生产链路播 `.mod`）。
 
+## 已知坑：Compose 的 onKeyEvent 必须写在 focusable 之前
+
+进度条「点不动、左右键也没反应」的根因不是 Pico，而是 modifier 顺序：
+
+```kotlin
+// ✗ 永远收不到按键：处理器在焦点节点内部，而按键只会冒泡给祖先
+Modifier.focusable().onKeyEvent { ... }
+// ✓
+Modifier.onKeyEvent { ... }.focusable()
+```
+
+再叠加一层：Pico 没有真实触摸，扳机是「射线 hover → `DPAD_CENTER`」
+（`MainActivity.confirmAtPointer`），所以 `detectTapGestures` 那条路在头显里是死的。
+`SeekBar` 现在用 `RayPointer`（窗口坐标，每次 hover 更新）换算落点比例，
+`onGloballyPositioned` 记录控件位置，确认键直接跳到落点。
+
+排查入口：`adb logcat -s OrzSeek` 能看到 界面手势 → `vm.seekTo(duration=…)` →
+`controller.seekTo(connected=…)` → `player.handleSeek native(… applied=…)`。
+
 ## 验收清单（真机）
 
 - [ ] `xm` / `mod` 首播 < 500ms（旧路径数秒）
