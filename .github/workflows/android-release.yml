@@ -90,6 +90,18 @@ jobs:
           cp dist/flat/app-release.aab "dist/OrzMusic-android-$VER.aab"
           ls -l dist
 
+      # GPLv3 §6:分发二进制时必须同时提供对应源码。
+      # 用 checkout 出来的树(就是本 tag),不要再拉分支 —— 否则源码与产物对不上。
+      - name: 打包对应源码(GPLv3 §6)
+        env:
+          VER: ${{ steps.meta.outputs.ver }}
+        run: |
+          set -euo pipefail
+          git archive --format=tar.gz \
+            --prefix="OrzMusic-android-$VER/" \
+            -o "dist/OrzMusic-android-$VER-source.tar.gz" HEAD
+          ls -l "dist/OrzMusic-android-$VER-source.tar.gz"
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -100,6 +112,7 @@ jobs:
             ### 制品
             - `OrzMusic-android-${{ steps.meta.outputs.ver }}.apk` —— 侧载 / 国内商店
             - `OrzMusic-android-${{ steps.meta.outputs.ver }}.aab` —— Google Play 上传
+            - `OrzMusic-android-${{ steps.meta.outputs.ver }}-source.tar.gz` —— 对应源码
 
             版本校验 / 签名指纹 / AAB 结构由
             [EasyIndie/EasyRelease](https://github.com/EasyIndie/EasyRelease) 的
@@ -107,11 +120,18 @@ jobs:
 
             Git Commit: `${{ github.sha }}`
 
+            ### 许可证(GPLv3)
+            本客户端按 **GPL-3.0-or-later** 分发(`liborzaudio.so` 静态链接了 GPL 系
+            解码器)。对应源码就是上面的 `-source.tar.gz`(内含 native 重建脚本
+            `clients/android/audio-kit/scripts/build-android.sh`);第三方组件清单与
+            上游源码地址见压缩包里的 `clients/android/THIRD_PARTY_NOTICES.md`。
+
             > applicationId `com.jokerhub.orzmusic.android` 与签名密钥自首次发布起不再变更,
             > 指纹见 `clients/android/signing-manifest.txt`。
           files: |
             dist/OrzMusic-android-*.apk
             dist/OrzMusic-android-*.aab
+            dist/OrzMusic-android-*-source.tar.gz
             dist/flat/android-manifest.json
           draft: false
           prerelease: false

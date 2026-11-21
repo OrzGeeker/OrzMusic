@@ -76,6 +76,19 @@ Play 对音乐/流媒体类会关注版权。提交前确认:
 - [ ] 官方实例的曲库有权分发,或
 - [ ] 商店描述里明确「本应用是客户端,内容由用户配置的服务器提供」,并让用户自建
 
+## 许可证与源码(GPLv3)
+
+本应用按 **GPL-3.0-or-later** 分发(`liborzaudio.so` 静态链接了 GPL 系解码器)。
+上架前必须满足:
+
+- [ ] 商店描述里给出**对应源码**地址:
+      `https://github.com/OrzGeeker/OrzMusic/tree/android-v<version>`
+- [ ] GitHub Release 附上同 tag 的源码包(`android-release.yml` 自动带上)
+- [ ] App 内可访问「开源许可 / 源码」入口(设置页)
+- [ ] **没有**签名校验 / Play Integrity 这类防篡改(会违反 §6 反锁定)
+
+机器能查的部分由 `bash scripts/store-check.sh --target play` 的「GPLv3 合规」小节校验。
+
 ## 技术门槛(机器会查)
 
 - [x] `targetSdk` = 36

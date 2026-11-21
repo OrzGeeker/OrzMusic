@@ -179,6 +179,69 @@ if [ "$TARGET" = play ]; then
   fi
 fi
 
+# ── GPLv3 合规(全 target 共用)────────────────────────────────
+# 为什么在这里查:`clients/android/` 是 GPL-3.0-or-later(见 clients/android/LICENSE),
+# 而 "GPL 作品里塞防篡改"/"漏声明" 都是机器能提前发现的拒收/违规理由。
+LIC_FILE="$CLIENT/LICENSE"
+NOTICES="$CLIENT/THIRD_PARTY_NOTICES.md"
+
+if [ -f "$LIC_FILE" ] && grep -q 'GNU GENERAL PUBLIC LICENSE' "$LIC_FILE" && grep -q 'Version 3' "$LIC_FILE"; then
+  ok "LICENSE 是 GPLv3 全文"
+else
+  bad "缺少 GPLv3 全文:$LIC_FILE"
+fi
+
+if [ -f "$NOTICES" ]; then
+  ok "THIRD_PARTY_NOTICES.md 存在"
+else
+  bad "缺少 $NOTICES(GPLv3 §6 要求随二进制提供声明)"
+fi
+
+# profile 里每个 decoder 都必须在声明里出现,否则就是"未声明的第三方组件"。
+if command -v python3 >/dev/null 2>&1; then
+  missing="$(python3 - "$CLIENT" <<'PY' 2>/dev/null
+import json, sys, pathlib
+client = pathlib.Path(sys.argv[1])
+profile = json.loads((client / "audio-kit/native/decoder-profile.json").read_text(encoding="utf-8"))
+manifest = json.loads((client / "audio-kit/native/decoder-manifest.json").read_text(encoding="utf-8"))
+notices = (client / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8").lower()
+by_id = {f["id"]: f for f in manifest.get("formats", [])}
+decoders = []
+for fmt in profile.get("formats", []):
+    d = by_id.get(fmt["id"], {}).get("decoder")
+    if d and d not in decoders:
+        decoders.append(d)
+print(" ".join(d for d in decoders if d.lower() not in notices))
+PY
+)"
+  if [ -z "$(printf '%s' "$missing" | tr -d '[:space:]')" ]; then
+    ok "profile 里所有 decoder 都在声明中列出"
+  else
+    bad "声明遗漏的 decoder:$missing"
+  fi
+else
+  warn "没有 python3,跳过『profile ↔ 声明』一致性检查"
+fi
+
+# GPLv3 §6 反锁定:不能用技术手段阻止安装修改版。
+hits="$(grep -rEl 'PlayIntegrity|playIntegrity|integrityManager|GET_SIGNATURES|apkContentsSigners|signingInfo' \
+  "$CLIENT/app/src" "$CLIENT/core/src" "$CLIENT/audio-kit/src" 2>/dev/null || true)"
+if [ -z "$hits" ]; then
+  ok "未发现签名校验 / Play Integrity(GPLv3 §6)"
+else
+  bad "发现防篡改代码,违反 GPLv3 §6:\n$hits"
+fi
+
+# 商店文案必须给出对应源码地址。
+for f in "$CLIENT/store/play.md" "$CLIENT/store/cn.md"; do
+  [ -f "$f" ] || continue
+  if grep -q 'github.com/OrzGeeker/OrzMusic' "$f"; then
+    ok "store/$(basename "$f") 含源码地址"
+  else
+    bad "store/$(basename "$f") 缺少对应源码地址(GPLv3 §6)"
+  fi
+done
+
 # ── 人工清单是否还有待填项 ──────────────────────────────────────
 for f in "$CLIENT/store/play.md" "$CLIENT/store/cn.md"; do
   [ -f "$f" ] || continue

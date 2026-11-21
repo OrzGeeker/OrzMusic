@@ -1,6 +1,10 @@
 import org.gradle.api.publish.maven.MavenPublication
 
-// 这个 AAR 是**对外发布的 SDK**,它自己的 Maven 版本号跟进的是 OrzAudioCore 上游,
+// 这个 AAR 是**对外发布的 SDK**,许可证是 GPL-3.0-or-later(不是 Apache-2.0),
+// 因为它静态链接了 GPL 系解码器。改动许可证前先读
+// clients/android/THIRD_PARTY_NOTICES.md。
+//
+// 它自己的 Maven 版本号跟进的是 OrzAudioCore 上游,
 // 与应用版本(仓库根 version.properties)无关,所以不能从那里读。
 // 写成命名常量而不是直写 `version = "…"`,是因为 tools/tag-release.sh 会扫
 // apps/ 里 `version = "x.y.z"` 形式的字面量来防「应用版本号被写死」——
@@ -59,10 +63,13 @@ afterEvaluate {
                     name.set("OrzAudioCore Android")
                     description.set("Android binding for the OrzAudioCore decoding SDK")
                     url.set("https://github.com/OrzGeeker/OrzAudioCore")
+                    // 产物静态链接了 GPL 系解码器(sidplayfp / sc68 / asap ...)，
+                    // 链接后的整体是 GPLv3 作品，所以这里不能继续声明 Apache-2.0。
+                    // 详见 clients/android/THIRD_PARTY_NOTICES.md。
                     licenses {
                         license {
-                            name.set("Apache-2.0")
-                            url.set("https://www.apache.org/licenses/LICENSE-2.0")
+                            name.set("GPL-3.0-or-later")
+                            url.set("https://www.gnu.org/licenses/gpl-3.0.html")
                         }
                     }
                     scm {

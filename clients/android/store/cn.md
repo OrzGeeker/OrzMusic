@@ -19,6 +19,15 @@
 | TV banner 320×180 | ✅ `app/src/main/res/drawable/banner.png` |
 | release 签名 APK | `./gradlew :app:assembleRelease`(签名配置见 README「上架」) |
 
+## 开源许可(GPLv3)
+
+本客户端按 **GPL-3.0-or-later** 分发(`liborzaudio.so` 静态链接了 GPL 系解码器)。
+对国内商店同样适用:提交材料里要给出对应源码地址,并在应用内提供许可入口。
+
+- 对应源码:`https://github.com/OrzGeeker/OrzMusic/tree/android-v<version>`
+- 第三方组件与许可证全文:`clients/android/THIRD_PARTY_NOTICES.md`
+- 不得加入签名校验 / 完整性校验阻止安装修改版(GPLv3 §6)
+
 ## 内容版权(音乐类商店会重点看)
 
 - [ ] 曲库权利:官方实例的 KeyGen / 芯片音乐是否有分发权

@@ -160,3 +160,15 @@ CAS 保存导入时的原始音频文件；服务端解码产生的 WAV 缓存�
 - Leaf / Alpine.js
 - Worker + SharedArrayBuffer + AudioWorklet
 - OrzAudioCore ABI v1 native/WASM SDK
+
+## 许可证范围
+
+本仓库不是单一许可证，按分发产物划分：
+
+| 范围 | 许可证 | 说明 |
+|---|---|---|
+| 服务端与 Web 端（`Sources/`、`Resources/`、`Tests/`） | Apache-2.0（根目录 [`LICENSE`](LICENSE)） | 服务端以镜像分发时已包含 GPL 系解码器；源码公开满足其义务 |
+| Android 客户端（`clients/android/`） | **GPL-3.0-or-later**（[`clients/android/LICENSE`](clients/android/LICENSE)） | `liborzaudio.so` 静态链接 GPL 解码器，链接后的整体是 GPLv3 作品 |
+| 对外 SDK `com.orzgeeker:audio-core-android` | **GPL-3.0-or-later** | 引用它的 App 也随之受 GPLv3 约束 |
+
+第三方组件清单与源码获取方式见 [`clients/android/THIRD_PARTY_NOTICES.md`](clients/android/THIRD_PARTY_NOTICES.md)。
