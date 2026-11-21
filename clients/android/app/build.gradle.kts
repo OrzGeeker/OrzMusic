@@ -108,6 +108,9 @@ android {
         targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersion
+        // 设备端冒烟测试(`connectedDebugAndroidTest`):JVM 单测加载不了 .so,
+        // 「本机真能解哪些格式」只能在设备上验。
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     // ⚠️ signingConfigs 必须在 buildTypes 之前 —— buildTypes 里要用
@@ -246,4 +249,8 @@ dependencies {
     testImplementation("io.github.takahirom.roborazzi:roborazzi:1.30.0")
     testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.30.0")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    // ---- 设备端测试(需要真机/模拟器):liborzaudio.so 能不能解 23 个格式 ----
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.5.2")
 }

@@ -205,8 +205,11 @@ cd clients/android && ./gradlew assembleDebug
 - [x] 上游发带 `android` job 的 tag（v1.3.0），`androidAssets` 已写进 lock
 - [x] `liborzaudio.so` 已用 v1.3.0 资产重建（arm64 4.5MB / armv7 3.9MB，11 个 JNI 符号，
       16KB 对齐，`orz_build_info()` = `orzcore-1.3.0-m1`）
-- [ ] 真机上确认 `OrzAudioCore.supportedFormats` = 23 项（需实体设备，
-      与 PCM 流式播放的验收清单一起跑）
+- [x] 真机上确认 `OrzAudioCore.supportedFormats` = 23 项 —— 已做成设备端冒烟测试
+      `app/src/androidTest/.../OrzAudioCoreDeviceTest.kt`（Pico A8110 / Android 10 / arm64-v8a
+      上 4 条全绿）：`.so` 能加载、`orz_build_info()` = `orzcore-1.3.0-m1`、
+      运行时格式集 == 清单 23 项、手搓最小 MOD 能真跑出 PCM。
+      跑法：`cd clients/android && ./gradlew :app:connectedDebugAndroidTest`
 - [x] Media3 桥：`OrzPlaybackPlayer`（`SimpleBasePlayer`）把 `PcmStream` 接进
       `PlaybackService`，通知栏/锁屏/耳机线控行为不变 ——
       见 [`backlog/android-pcm-streaming.md`](backlog/android-pcm-streaming.md)

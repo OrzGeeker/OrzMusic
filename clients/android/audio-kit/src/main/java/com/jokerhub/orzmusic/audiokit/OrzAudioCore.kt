@@ -55,8 +55,13 @@ object OrzAudioCore {
 
     val isAvailable: Boolean get() = loadResult.isSuccess
 
+    /** `orz_abi_version()` 原值:`(major << 16) | minor`。 */
     val abiVersion: Int
         get() = if (isAvailable) runCatching { nativeAbiVersion() }.getOrDefault(0) else 0
+
+    val abiVersionMajor: Int get() = abiVersion ushr 16
+
+    val abiVersionMinor: Int get() = abiVersion and 0xffff
 
     fun buildInfo(): String? =
         if (isAvailable) runCatching { nativeBuildInfo() }.getOrNull() else null
@@ -66,7 +71,7 @@ object OrzAudioCore {
      * 升级 SDK 后旧缓存自动失效(和服务端 PCM 缓存键同一口径)。
      */
     val cacheFingerprint: String by lazy {
-        val fallback = "orzcore-abi-$abiVersion"
+        val fallback = "orzcore-abi-$abiVersionMajor.$abiVersionMinor"
         val json = buildInfo() ?: return@lazy fallback
         runCatching {
             JSONObject(json).optString("fingerprint", fallback)
