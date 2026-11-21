@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.0.12] — 2026-11-21
+
+### 新增
+- `serverDecode` 命中统计：`SongController` 在走服务端转码时按格式计数，进程内累加、
+  每 30 秒落盘到 `data/decode-hits.json`（`DECODE_HIT_STATS_PATH` 可覆盖；写盘失败只打日志）。
+  CLI 新增 `--print-hits`（`make decode-hits`）查看各格式命中次数与最近一次命中时间。
+- `make warm-decode-cache` 支持按命中收敛：`MIN_HITS` / `HITS_WINDOW_DAYS` 只预热
+  「最近确实被请求过」的格式，不再按格式全量重解；汇总里新增 `skippedNoRecentHits`。
+
+### 变更
+- 解码核心升级到 **OrzAudioCore 1.3.0**（`audio-core-sdk.lock.json`，新增 Android 产物）。
+  服务端/Web 的二进制资产按新校验和重新锁定，`orz_build_info()` 变为 `orzcore-1.3.0-m1`，
+  已有的 PCM/WAV 缓存键随之失效、会按需重建（格式集合不变，仍是 23 个）。
+
 ## [0.0.11] — 2026-09-28
 
 ### 修复
