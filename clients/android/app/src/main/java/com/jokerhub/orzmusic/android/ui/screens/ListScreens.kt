@@ -258,7 +258,10 @@ fun SettingsContent(
                 Text(
                     text = "服务器：$serverUrl\n" +
                         "版本：v$version\n" +
-                        "解码：OrzAudioCore 1.2.4（本机可用 ${formats.size} 个格式：" +
+                        // 版本号取自生成的清单(单一事实来源 decoder-profile.json),
+                        // 不手写 —— 升级 SDK 时不会漏改这里。
+                        "解码：${com.jokerhub.orzmusic.core.playback.DecoderManifest.SDK_VERSION}" +
+                        "（本机可用 ${formats.size} 个格式：" +
                         formats.joinToString("/") { it.id } + "）\n" +
                         "播放：模块/芯片音乐流式解码（AudioTrack），容器音频走 ExoPlayer；" +
                         "后台播放与 MediaSession 已接入。",
