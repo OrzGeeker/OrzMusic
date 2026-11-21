@@ -252,7 +252,8 @@ private fun NowPlayingArtwork(
             levels = levels,
             active = isPlaying,
             maxBars = if (coverSize > 160.dp) 24 else 16,
-            modifier = Modifier.width(coverSize * 0.90f).height(if (coverSize > 160.dp) 38.dp else 26.dp)
+            // 头显里 38dp 的柱子太矮,一眼看不出在动;放大到 56dp 仍不抢封面。
+            modifier = Modifier.width(coverSize * 0.90f).height(if (coverSize > 160.dp) 56.dp else 34.dp)
         )
     }
 }

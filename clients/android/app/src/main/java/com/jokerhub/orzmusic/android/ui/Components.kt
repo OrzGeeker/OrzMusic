@@ -35,8 +35,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -56,6 +57,8 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -925,6 +928,11 @@ fun ProgressTrack(
 /**
  * 可点击 / 可拖动 / 可用 D-pad 左右键 seek 的进度条。
  * Web 端是 `pointermove` 预览 + 点击 seek；Android 上同时照顾触屏与遥控。
+ *
+ * Pico 上没有真正的触摸：扳机是「射线 hover 到这里 → 发 DPAD_CENTER」（见
+ * `MainActivity.confirmAtPointer`），而 `detectTapGestures` 只认真实的按下事件，
+ * 所以**必须**把 DPAD_CENTER 也当成「跳到射线落点」。0.8.2 之前只处理了
+ * DirectionLeft/Right，头显里就表现为「进度条点不动、也没法 seek」。
  */
 @Composable
 fun SeekBar(
@@ -934,10 +942,13 @@ fun SeekBar(
     modifier: Modifier = Modifier
 ) {
     val focus = remember { FocusRequester() }
+    // 射线/鼠标的横向落点（0..1）。-1 表示这次没有任何指针悬停过，
+    // 纯 D-pad 用户据此退回只看左右键。
+    var pointerFraction by remember { mutableFloatStateOf(-1f) }
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(24.dp)
+            .height(32.dp)
             .focusOnHover(focus)
             .focusable()
             .onKeyEvent { event ->
@@ -945,7 +956,27 @@ fun SeekBar(
                 when (event.key) {
                     Key.DirectionLeft -> { onSeekBy(-5_000); true }
                     Key.DirectionRight -> { onSeekBy(5_000); true }
+                    // 射线指到哪，确认就跳到哪
+                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
+                        val target = pointerFraction
+                        if (target < 0f) false else { onSeek(target); true }
+                    }
                     else -> false
+                }
+            }
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        if (event.type != PointerEventType.Move &&
+                            event.type != PointerEventType.Enter
+                        ) continue
+                        val x = event.changes.firstOrNull()?.position?.x ?: continue
+                        val width = size.width
+                        if (width > 0) {
+                            pointerFraction = (x / width.toFloat()).coerceIn(0f, 1f)
+                        }
+                    }
                 }
             }
             .pointerInput(Unit) {
@@ -980,7 +1011,19 @@ fun SeekBar(
                     cornerRadius = CornerRadius(radius, radius)
                 )
             }
-            val thumbRadius = 5.dp.toPx()
+            // 射线悬停位置：让「确认键会跳到这里」这件事看得见。
+            val hover = pointerFraction
+            if (hover >= 0f) {
+                val markerX = (trackWidth * hover).coerceIn(0f, trackWidth)
+                drawLine(
+                    color = OrzColors.Mint.copy(alpha = 0.45f),
+                    start = Offset(markerX, y - size.height / 2f),
+                    end = Offset(markerX, y + size.height / 2f),
+                    strokeWidth = 2.dp.toPx()
+                )
+            }
+
+            val thumbRadius = 6.dp.toPx()
             val thumbCenter = Offset(
                 progress.coerceIn(thumbRadius, trackWidth - thumbRadius),
                 y

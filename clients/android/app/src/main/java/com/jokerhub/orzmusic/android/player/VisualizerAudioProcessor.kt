@@ -137,7 +137,10 @@ class VisualizerAudioProcessor : BaseAudioProcessor() {
             // 不额外加“高频衰减”斜率，避免所有频段连成一条平滑下降的斜线；
             // 用更宽的 dB 窗 + gamma 保留低频到高频的自然差异。
             val level = (((db + 50f) / 50f).coerceIn(0f, 1f)).pow(1.55f)
-            next[bar] = (smoothed[bar] * 0.42f + level * 0.58f).coerceIn(0f, 1f)
+            // 快起慢落:上升跟当前帧(0.30 保留旧值就够快),回落按 0.72 保留 —— 纯 0.42 时柱子在 100ms 内就塌回去,头显里看起来几乎不动。
+            val rise = level > smoothed[bar]
+            val keep = if (rise) 0.30f else 0.72f
+            next[bar] = (smoothed[bar] * keep + level * (1f - keep)).coerceIn(0f, 1f)
         }
         smoothed = next
         VisualizerBus.publish(next.copyOf())
