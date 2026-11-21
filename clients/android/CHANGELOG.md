@@ -5,6 +5,21 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [0.8.5](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.8.4...android-v0.8.5) - 2026-11-22
+
+0.8.4 之后仍有一个真问题：拖动进度条时音乐不跳、进度条立刻弹回原位。
+用真歌定位到——`orz_decoder_seek` **只有 openmpt 系**实现（`mod/xm/it/s3m/mo3/mtm`），
+`sc68 / sid / gme` 这些的 capabilities 里没有 `ORZ_CAP_SEEK`，调用直接返回不支持，
+所以「有的歌能拖、有的拖了弹回去」。
+
+现在不支持 seek 的格式改用**重解码快进**（重开解码器把 PCM 渲染丢弃到目标位置）：
+实测 sc68 跳 90 秒只要 ~22ms（约 4000x 实时），用户视角没有区别。
+真机验证 `mod` → `applied=true`、`sc68` → `applied=true skipRender=true now=90000`。
+
+### 修复
+
+- fix(android): 不支持 seek 的格式改用「重解码快进」，进度条不再弹回原位 ([7041300](https://github.com/OrzGeeker/OrzMusic/commit/7041300))
+
 ## [0.8.4](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.8.3...android-v0.8.4) - 2026-11-22
 
 0.8.3 让进度条「看起来能交互」了，但射线确认/拖动之后音频不跳位置、进度也不更新。
