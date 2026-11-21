@@ -32,6 +32,21 @@ class MediaCache(context: Context) {
         .callTimeout(180, TimeUnit.SECONDS)
         .build()
 
+    /**
+     * 只要原始文件（流式解码路径用）：不转 WAV、不碰 pcm/ 缓存。
+     *
+     * 由 `PlaybackRoute.Native` 进来后直接交给 `PcmStream` +
+     * [PcmAudioSink]，避免“整首曲解成 WAV”的首播延迟与磁盘占用。
+     */
+    suspend fun rawFor(song: Song, rawUrl: String): File = withContext(Dispatchers.IO) {
+        val raw = File(root, CacheKey.raw(song))
+        if (!raw.isFile || raw.length() < 32L) {
+            raw.parentFile?.mkdirs()
+            download(rawUrl, raw)
+        }
+        raw
+    }
+
     suspend fun wavFor(song: Song, rawUrl: String): File = withContext(Dispatchers.IO) {
         if (!OrzAudioCore.isAvailable) {
             error("当前设备的 ABI 没有原生解码器")

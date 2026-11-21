@@ -63,10 +63,6 @@ class VisualizerAudioProcessor : BaseAudioProcessor() {
     }
 
     private fun analyze(bytes: ByteArray) {
-        val now = SystemClock.elapsedRealtime()
-        if (now - lastPublishMs < 32L) return
-        lastPublishMs = now
-
         val samples = when (encoding) {
             C.ENCODING_PCM_16BIT -> {
                 val shorts = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
@@ -78,16 +74,33 @@ class VisualizerAudioProcessor : BaseAudioProcessor() {
             }
             else -> return
         }
+        analyzeInterleaved(samples, samples.size / channels.coerceAtLeast(1), channels, sampleRate)
+    }
 
-        val frames = samples.size / channels
-        if (frames <= 0) return
+    /**
+     * 本地解码(PcmStream)那条腿直接调这里 —— 不经过 Media3 的 AudioSink。
+     *
+     * 与 [queueInput] 共用同一套 FFT/平滑逻辑，所以两条播放路径的声场表现一致。
+     * 写入线程（非主线程）会调用，必须加锁。
+     */
+    @Synchronized
+    fun analyzeInterleaved(samples: FloatArray, frames: Int, channels: Int, sampleRate: Int) {
+        if (frames <= 0 || channels <= 0) return
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastPublishMs < 32L) return
+        lastPublishMs = now
+
+        this.channels = channels
+        this.sampleRate = sampleRate
+        val framesCount = minOf(frames, samples.size / channels)
+        if (framesCount <= 0) return
 
         // 取最后 FFT_SIZE 帧做单声道混音 + Hann 窗；不足则补零。
-        val startFrame = (frames - FFT_SIZE).coerceAtLeast(0)
+        val startFrame = (framesCount - FFT_SIZE).coerceAtLeast(0)
         for (i in 0 until FFT_SIZE) {
             val frame = startFrame + i
             var mono = 0f
-            if (frame < frames) {
+            if (frame < framesCount) {
                 var channel = 0
                 while (channel < channels) {
                     mono += samples[frame * channels + channel]
@@ -178,12 +191,14 @@ class VisualizerAudioProcessor : BaseAudioProcessor() {
         }
     }
 
+    @Synchronized
     override fun onFlush() {
         // 切歌 / seek 时旧电平不要残留太久。
         smoothed = FloatArray(smoothed.size)
         VisualizerBus.reset()
     }
 
+    @Synchronized
     override fun onReset() {
         smoothed = FloatArray(smoothed.size)
         VisualizerBus.reset()

@@ -10,6 +10,7 @@ import com.jokerhub.orzmusic.android.data.MusicRepository
 import com.jokerhub.orzmusic.android.player.MediaCache
 import com.jokerhub.orzmusic.android.player.PlaybackCommandBridge
 import com.jokerhub.orzmusic.android.player.PlaybackController
+import com.jokerhub.orzmusic.android.player.RuntimeDecoderManifest
 import com.jokerhub.orzmusic.core.model.Artist
 import com.jokerhub.orzmusic.core.model.FormatCount
 import com.jokerhub.orzmusic.core.model.Playlist
@@ -17,7 +18,6 @@ import com.jokerhub.orzmusic.core.model.PlaylistDraft
 import com.jokerhub.orzmusic.core.model.Song
 import com.jokerhub.orzmusic.core.model.Stats
 import com.jokerhub.orzmusic.core.playback.AudioSource
-import com.jokerhub.orzmusic.core.playback.DecoderManifest
 import com.jokerhub.orzmusic.core.playback.PlaybackPolicy
 import com.jokerhub.orzmusic.core.playback.PlaybackQueue
 import com.jokerhub.orzmusic.core.playback.PlaybackRoute
@@ -398,7 +398,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** 与 Web 端 `OrzAudioPlayer.play(song)` 同层:决定走 direct/server/native。 */
     private fun startSong(song: Song) {
-        when (val route = PlaybackPolicy.route(song, repository, DecoderManifest)) {
+        when (val route = PlaybackPolicy.route(song, repository, RuntimeDecoderManifest)) {
             is PlaybackRoute.Remote -> {
                 playback.play(
                     AudioSource.Remote(
@@ -435,13 +435,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 decoding = false,
                 error = null,
                 notice = "「${format.uppercase()}」没有编进原生解码器" +
-                    "(当前支持 ${DecoderManifest.formats.joinToString("/") { it.id }})。" +
+                    "(当前支持 ${RuntimeDecoderManifest.formats.joinToString("/") { it.id }})。" +
                     "可以先在网页播放器里播放。"
             )
         }
     }
 
-    /** wasmDecode 曲目:下载 raw → OrzAudioCore 解成 WAV → 平台播放器播放。 */
+    /**
+     * wasmDecode / 本地可解的 serverDecode 曲目：只下载原始文件，
+     * 交给播放服务里的 [com.jokerhub.orzmusic.android.player.OrzPlaybackPlayer]
+     * 用 `PcmStream` + `AudioTrack` 流式解码播放（不再整曲转 WAV）。
+     */
     private fun startNative(song: Song, rawUrl: String) {
         _state.update {
             it.copy(
@@ -450,17 +454,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 isPlaying = false,
                 decoding = true,
                 error = null,
-                notice = "正在解码 ${song.fileFormat.uppercase()}…"
+                notice = null
             )
         }
 
         playJob = viewModelScope.launch {
             try {
-                val wav = mediaCache.wavFor(song, rawUrl)
+                val raw = mediaCache.rawFor(song, rawUrl)
                 if (_state.value.current?.id != song.id) return@launch
                 playback.play(
                     AudioSource.Local(
-                        path = wav.absolutePath,
+                        path = raw.absolutePath,
                         id = song.id,
                         title = song.title,
                         artist = song.artistName,
@@ -476,7 +480,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     _state.update {
                         it.copy(
                             decoding = false,
-                            error = "解码失败:${e.message ?: e.javaClass.simpleName}"
+                            error = "准备失败:${e.message ?: e.javaClass.simpleName}"
                         )
                     }
                 }

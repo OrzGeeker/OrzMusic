@@ -4,10 +4,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import androidx.media3.exoplayer.DefaultRenderersFactory
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.audio.AudioSink
-import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.CommandButton
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
@@ -20,28 +17,32 @@ import com.jokerhub.orzmusic.android.MainActivity
 /**
  * 后台播放宿主。
  *
- * ExoPlayer 归 service 所有，Activity / ViewModel 通过 MediaController 控制：
+ * `MediaSession` 现在绑在 [OrzPlaybackPlayer] 上（而不是裸 ExoPlayer）：
+ * 模块/芯片音乐走 `PcmStream` + `AudioTrack` 流式解码，容器音频走内部 ExoPlayer，
+ * 对外仍然是同一个 `Player`，所以通知栏 / 锁屏 / 耳机线控行为不变。
+ *
  *   · 按 HOME / 锁屏后播放继续（前台服务 + MediaSession）
  *   · 通知栏 / 锁屏 / 耳机线控由 Media3 默认通知提供
  *   · Activity 销毁不会停止播放；重新进入时重新连接 controller
  *
- * 声场 PCM 采样也在这里的 AudioSink 管线里完成（VisualizerAudioProcessor）。
+ * 声场 PCM 采样：ExoPlayer 那条腿挂在 AudioSink 的 processor 上；
+ * 本地解码那条腿在 [NativePcmPlayback] 的写线程里调用同一个分析器。
  */
+@androidx.annotation.OptIn(UnstableApi::class)
 class PlaybackService : MediaSessionService() {
 
     private var mediaSession: MediaSession? = null
+    private var player: OrzPlaybackPlayer? = null
 
     override fun onCreate() {
         super.onCreate()
         setMediaNotificationProvider(OrzMediaNotificationProvider(this))
 
-        // 自定义 AudioProcessor 挂在 AudioSink 上；放在默认 processor 之前，
-        // 拿到的是解码后的 PCM，而不是 AudioTrack 已经写走的数据。
         val visualizer = VisualizerAudioProcessor()
-        val player = ExoPlayer.Builder(this)
-            .setRenderersFactory(OrzRenderersFactory(this, visualizer))
-            .build()
-        player.addListener(object : androidx.media3.common.Player.Listener {
+        val created = OrzPlaybackPlayer(this, visualizer)
+        player = created
+
+        created.addListener(object : androidx.media3.common.Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 // 暂停/播完时把声场归零，避免停在最后一帧。
                 if (!isPlaying) VisualizerBus.reset()
@@ -73,7 +74,7 @@ class PlaybackService : MediaSessionService() {
                 .build()
         )
 
-        mediaSession = MediaSession.Builder(this, player)
+        mediaSession = MediaSession.Builder(this, created)
             .setSessionActivity(sessionActivity)
             .setCustomLayout(customLayout)
             .setCallback(object : MediaSession.Callback {
@@ -96,9 +97,9 @@ class PlaybackService : MediaSessionService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = mediaSession
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        val player = mediaSession?.player
+        val current = mediaSession?.player
         // 从最近任务划掉时：还在播就继续（用户可能锁屏/戴耳机），否则退出。
-        if (player == null || !player.playWhenReady || player.mediaItemCount == 0) {
+        if (current == null || !current.playWhenReady || current.mediaItemCount == 0) {
             stopSelf()
         }
     }
@@ -109,33 +110,13 @@ class PlaybackService : MediaSessionService() {
             release()
         }
         mediaSession = null
+        player = null
         VisualizerBus.reset()
         super.onDestroy()
     }
 }
 
-
-/**
- * ExoPlayer 1.5 没有公开的 `Builder.setAudioSink`，通过 RenderersFactory
- * 覆盖 `buildAudioSink` 注入 PCM 采样 processor。
- */
 object PlaybackActions {
     const val PREVIOUS = "com.jokerhub.orzmusic.android.PREVIOUS"
     const val NEXT = "com.jokerhub.orzmusic.android.NEXT"
-}
-
-private class OrzRenderersFactory(
-    context: Context,
-    private val visualizer: VisualizerAudioProcessor
-) : DefaultRenderersFactory(context) {
-
-    override fun buildAudioSink(
-        context: Context,
-        enableFloatOutput: Boolean,
-        enableAudioTrackPlaybackParams: Boolean
-    ): AudioSink = DefaultAudioSink.Builder(context)
-        .setEnableFloatOutput(enableFloatOutput)
-        .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-        .setAudioProcessors(arrayOf(visualizer))
-        .build()
 }

@@ -148,6 +148,8 @@ class PlaybackController(context: Context) : OrzAudioPlayer {
             }
             is AudioSource.Local -> {
                 builder.setUri(Uri.fromFile(File(path)).toString())
+                // tag = 格式 id：播放器据此决定走 PcmStream(本地解码) 还是 ExoPlayer(文件)。
+                if (format.isNotBlank()) builder.setTag(format.lowercase())
                 builder.setMediaId(id)
                 if (title.isNotBlank()) metadata.setTitle(title)
                 if (artist.isNotBlank()) metadata.setArtist(artist)
