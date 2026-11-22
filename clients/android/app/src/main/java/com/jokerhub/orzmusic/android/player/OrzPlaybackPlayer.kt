@@ -331,9 +331,14 @@ class OrzPlaybackPlayer(
         releaseNative()
     }
 
-    private companion object {
+    internal companion object {
         const val POLL_INTERVAL_MS = 250L
 
+        /**
+         * 对外宣称的播放器能力。`internal` 是为了让单测能直接钉住这张表
+         * （`PlaybackCommandsTest`）—— 0.8.12 之前多报了 SEEK_BACK/SEEK_FORWARD，
+         * Pico 的十字键就被 Media3 当成快退/快进，真机上会偷偷改进度。
+         */
         val AVAILABLE_COMMANDS: Player.Commands = Player.Commands.Builder()
             .addAll(
                 Player.COMMAND_PLAY_PAUSE,

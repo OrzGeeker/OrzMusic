@@ -36,7 +36,8 @@
     (`read / seekTo / selectSubsong / isEnded / positionMs`)
   - `OrzAudioCore.probe / nativeFormats / supportedFormats / cacheFingerprint / buildInfo`
   - `WavFile.write(decoder, output)`(对齐 Swift `WAVFile`)
-  - `OrzAudioCore.decodeToWav(...)`(便利层;**仅回退用**,正式路径是 `PcmStream`)
+  - `OrzAudioCore.decodeToWav(...)`(便利层:整曲解成 WAV。App 内已无调用点,
+    保留给 AAR 外部消费方;OrzMusic 自己的正式路径是 `PcmStream`)
 - manifest:`DecoderManifest.generated.kt` 由上游 `decoder-manifest.json` + Android profile 生成
   (`clients/android/audio-kit/scripts/gen-manifest.py`),不再手写格式白名单。
 

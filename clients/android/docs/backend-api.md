@@ -213,12 +213,14 @@ bash "$EASYANDROID/tools/ui-dump.sh" com.jokerhub.orzmusic.android --launch
 
 - MP3:筛选到 `MP3`(15 首)→ `reFX Trasher 2 VST v1.1`,进度 `0:01 / 0:08`
 - MOD 原生解码:`Car Mechanic Simulator 2015`(15KB `.mod`)→ 播放页进度 `0:28 / 1:16`
-- 设备上的解码产物:
+- 当时的解码产物(0.7.x 的整曲转 WAV 路径,现已删除):
   ```
   run-as <pkg> ls cache/orzmusic/pcm/  → <songId>.wav, 14,764,844 bytes
   ffprobe → pcm_s16le, 48000 Hz, stereo, 76.9 s
   ```
   说明 JNI → WAV → ExoPlayer 这条链路是通的,不是「放了个静音文件」。
+  0.8 起改成 `PcmStream` + `AudioTrack` 流式,`cache/pcm/` 与 `decodeToWav` 的
+  App 内调用点都已删除(见 `Docs/backlog/android-pcm-streaming.md`)。
 
 ### 验收时踩到的两个环境问题(不是 App 的 bug)
 

@@ -126,7 +126,12 @@ object OrzAudioCore {
         return AudioDecoder(handle)
     }
 
-    /** decode-to-WAV 便利层;正式调用方可以只用 [createDecoder] + [AudioDecoder]。 */
+    /**
+     * decode-to-WAV 便利层;正式调用方可以只用 [createDecoder] + [AudioDecoder]。
+     *
+     * OrzMusic App 内已无调用点(流式播放走 `PcmStream`),保留给 AAR 的外部消费方
+     * 和一次性脚本 —— 整曲落盘 44.1kHz stereo 约 10MB/分钟,别在播放路径里用。
+     */
     fun decodeToWav(
         input: File,
         output: File,

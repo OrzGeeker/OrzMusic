@@ -5,8 +5,9 @@ import com.jokerhub.orzmusic.core.model.Song
 /**
  * 本地缓存键。
  *
- * WAV 键包含解码器 namespace —— 与服务端把 `orz_build_info()` fingerprint
- * 写进 PCM 缓存键是同一口径:升级 OrzAudioCore / libopenmpt 后旧缓存自动失效。
+ * 只有原始文件这一种键：Android 走 `PcmStream` 流式解码，不再落 WAV
+ * （旧的 `wav()` / `cache/pcm/` 已随 0.8.13 删除）。
+ * 服务端仍把 `orz_build_info()` fingerprint 写进 PCM 缓存键，两者互不影响。
  */
 object CacheKey {
 
@@ -14,7 +15,4 @@ object CacheKey {
         val format = song.fileFormat.lowercase().ifBlank { "bin" }
         return "raw/${song.id}.$format"
     }
-
-    fun wav(song: Song, decoderNamespace: String): String =
-        "pcm/${song.id}-${decoderNamespace}.wav"
 }
