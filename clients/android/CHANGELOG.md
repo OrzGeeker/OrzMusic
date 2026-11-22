@@ -5,6 +5,22 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [0.8.9](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.8.8...android-v0.8.9) - 2026-11-22
+
+两个真机问题，根因都很具体：
+
+1. **左右键调进度仍不工作**：Pico 的十字键是以 `SOURCE_JOYSTICK` 轴值送进来的，
+   `dispatchGenericMotionEvent` 合成 DPAD 键时用 `sendTapKey()` 直接
+   `super.dispatchKeyEvent(...)`，绕过了 0.8.8 在 `dispatchKeyEvent` 里的判定。
+   现在判定收口成 `SeekBarZones.seekByDirectionKey()`，两条路共用。
+2. **切歌时进度条带着上一首的进度**：换歌要先下载/准备新文件，这期间旧播放还在跑，
+   界面轮询读到的仍是旧位置。现在 `startSong()` 先 `playback.stop()`，并且
+   `state.current?.id` 一变就把界面进度归零、时长先用服务端值顶上。
+
+### 修复
+
+- fix(android): 摇杆轴合成的左右键也能调进度；切歌时进度归零 ([07c28b2](https://github.com/OrzGeeker/OrzMusic/commit/07c28b2))
+
 ## [0.8.8](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.8.7...android-v0.8.8) - 2026-11-22
 
 拖动已经顺了。这轮修「左右键调进度」：真机实测按方向键时进度条**拿不到 Compose
