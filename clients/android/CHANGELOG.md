@@ -5,6 +5,20 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [0.8.11](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.8.10...android-v0.8.11) - 2026-11-22
+
+### 修复
+
+- fix(android): 升级 OrzAudioCore 1.3.1（adplug 可解）+ 切歌进度彻底归零 ([53cc258](https://github.com/OrzGeeker/OrzMusic/commit/53cc258))
+- chore(deps): Swift 侧 DecoderManifest 同步到 1.3.1 ([9c33f69](https://github.com/OrzGeeker/OrzMusic/commit/9c33f69))
+
+**解码核心升到 OrzAudioCore 1.3.1**：`amd` / `d00` / `hsc` / `rad` 四个 adplug
+格式之前在 Android 上直接报「格式不支持或数据损坏」——adplug 包装依赖 `/tmp`
+（Android 没有）。真机复查 22 个原生格式各一首真歌，现在**全部能播**。
+
+**切歌不再带上一首进度**：进度条的拖动预览按歌曲 id 重置，位置轮询只认
+「播放器当前条目 == 界面歌曲」，`MEDIA_NEXT` 实测 `6009ms → 1ms`。
+
 ## [0.8.10](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.8.9...android-v0.8.10) - 2026-11-22
 
 **左右键调进度整条下线。** 这条线试了三版（0.8.4 走 Compose 焦点、0.8.8 走
