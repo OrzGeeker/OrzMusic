@@ -14,9 +14,9 @@ package com.jokerhub.orzmusic.audiokit
 object DecoderManifest {
 
     const val PROFILE = "android-full"
-    const val SDK_VERSION = "1.3.0"
+    const val SDK_VERSION = "1.3.1"
     const val LIBOPENMPT_VERSION = "0.8.0"
-    const val CACHE_NAMESPACE = "orzaudio-1.3.0-full"
+    const val CACHE_NAMESPACE = "orzaudio-1.3.1-full"
 
     val formats: List<DecoderFormatInfo> = listOf(
         DecoderFormatInfo("xm", "XM", "openmpt", "0.8.0", "module", true, true),

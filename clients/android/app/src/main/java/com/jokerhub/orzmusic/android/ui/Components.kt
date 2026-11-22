@@ -945,7 +945,9 @@ fun SeekBar(
     onSeek: (Float) -> Unit,
     modifier: Modifier = Modifier,
     /** 只用于日志区分是哪个进度条（`dock` / `nowplaying`）。 */
-    tag: String = "seekbar"
+    tag: String = "seekbar",
+    /** 换歌标记（一般传歌曲 id）：变化时清掉拖动预览，避免把上一首的进度画在新歌上。 */
+    resetKey: Any? = null
 ) {
     val focus = remember { FocusRequester() }
     // 射线/鼠标的横向落点（0..1）。-1 表示这次没有任何指针悬停过。
@@ -955,6 +957,8 @@ fun SeekBar(
     var barWidth by remember { mutableFloatStateOf(0f) }
     // 拖动/点击后的本地预览位置：先跟手画，等播放器真追上来再交回去。
     var previewFraction by remember { mutableFloatStateOf(-1f) }
+    // 换歌必须清掉预览：否则上一首拖到的位置会直接画到下一首上（真机反馈过）。
+    LaunchedEffect(resetKey) { previewFraction = -1f }
     val shownFraction = if (previewFraction >= 0f) previewFraction else fraction
     // 播放器位置追上来了（或 1.2s 都没追上）就把预览交回给真实位置。
     LaunchedEffect(previewFraction, fraction) {

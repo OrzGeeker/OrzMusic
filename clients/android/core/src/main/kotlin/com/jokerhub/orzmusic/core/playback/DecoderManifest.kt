@@ -26,7 +26,7 @@ object DecoderManifest : DecoderManifestSource {
      * 升级 OrzAudioCore / libopenmpt 后,旧 WAV 自动失效 ——
      * 与服务端把 `orz_build_info()` fingerprint 写进 PCM 缓存键是同一口径。
      */
-    const val CACHE_NAMESPACE = "orzaudio-1.3.0-full"
+    const val CACHE_NAMESPACE = "orzaudio-1.3.1-full"
 
     override val formats: List<DecoderFormat> = listOf(
         DecoderFormat("xm", "XM", "modules"),

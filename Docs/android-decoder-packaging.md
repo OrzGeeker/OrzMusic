@@ -21,7 +21,7 @@
 |---|---|---|
 | 打包形态 | **单模块、单个 `liborzaudio.so`**，不做 AAR 拆分、不做插件 dlopen、不做独立进程 | 工程成本最低（约 2 人日 vs 5~25 人日），且 `sc68`/`sid` 是模拟器实现，进程隔离的收益不足以抵消复杂度 |
 | 许可证 | `clients/android/` 整体 **GPL-3.0-or-later**；`audio-core-android` AAR 的 POM 同样声明 GPL-3.0-or-later | 静态链接 GPL 解码器后整体是 GPLv3 作品。Apache-2.0 与 GPLv2 不兼容，只能升 v3 |
-| profile | `android-full`（23 格式），`cacheNamespace = orzaudio-1.3.0-full` | 与 server/WASM 同源 |
+| profile | `android-full`（23 格式），`cacheNamespace = orzaudio-1.3.1-full` | 与 server/WASM 同源 |
 | 能力判定 | **运行时探测为准**：`orz_get_format_count()` / `orz_get_format_info()` ∩ 生成的清单 | 清单先行、二进制后到也不会播错；漏编 decoder 时自动降级 |
 | 播放形态 | 流式（`PcmStream` + `AudioTrack`），不再整曲转 WAV | 见 [`backlog/android-pcm-streaming.md`](backlog/android-pcm-streaming.md) |
 
@@ -166,8 +166,8 @@ OrzAudioCore-<ver>-android-full/
 
 ## 发布流程（已于 2026-11-21 走完）
 
-上游 `OrzAudioCore v1.3.0` 已发布，`android` job 产出
-`OrzAudioCore-1.3.0-android-full.tar.gz`（sha256 `5cdf0608efca…`，
+上游 `OrzAudioCore v1.3.1` 已发布（修 adplug 在 Android 上没有 `/tmp` 的问题），`android` job 产出
+`OrzAudioCore-1.3.1-android-full.tar.gz`（sha256 `2c6578be07b2…`，
 含 arm64-v8a / armeabi-v7a / x86_64）。当时的步骤：
 
 ```bash

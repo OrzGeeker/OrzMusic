@@ -39,6 +39,14 @@ interface OrzAudioPlayer {
     val positionMs: Long
     val durationMs: Long
 
+    /**
+     * 播放器**当前真正在播的那一项**的 id（没有就是 null）。
+     *
+     * 界面据此判断「现在报上来的位置属于哪首歌」：换歌瞬间 `positionMs` 可能还是
+     * 上一首的，直接拿去画就会把旧进度带到新歌上。
+     */
+    val currentItemId: String? get() = null
+
     /** 0f…1f;平台播放器自己保存,客户端 UI 只读写这个值。 */
     var volume: Float
 

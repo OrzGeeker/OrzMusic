@@ -531,6 +531,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     val playbackPositionMs: Long get() = playback.positionMs
+    val playbackItemId: String? get() = playback.currentItemId
     val playbackDurationMs: Long get() = playback.durationMs
 
     fun seekTo(positionMs: Long) {

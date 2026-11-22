@@ -84,6 +84,9 @@ class PlaybackController(context: Context) : OrzAudioPlayer {
     override var onError: ((String) -> Unit)? = null
 
     override val isPlaying: Boolean get() = controller?.isPlaying == true
+    override val currentItemId: String?
+        get() = controller?.currentMediaItem?.mediaId?.takeIf { it.isNotBlank() }
+
     override val positionMs: Long get() = controller?.currentPosition?.coerceAtLeast(0L) ?: 0L
     override val durationMs: Long get() = controller?.duration
         ?.takeIf { it != androidx.media3.common.C.TIME_UNSET && it > 0 }

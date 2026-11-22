@@ -185,8 +185,16 @@ fun AppRoot(vm: AppViewModel = viewModel()) {
     }
     LaunchedEffect(state.current?.id, state.isPlaying, state.decoding) {
         while (isActive) {
-            positionMs = vm.playbackPositionMs
-            durationMs = vm.playbackDurationMs
+            // 只认「播放器当前条目 == 界面歌曲」的位置：换歌瞬间播放器可能还在报
+            // 上一首的位置，直接用就会把旧进度画到新歌上。
+            val songId = state.current?.id
+            if (songId != null && vm.playbackItemId == songId) {
+                positionMs = vm.playbackPositionMs
+                durationMs = vm.playbackDurationMs
+            } else if (songId == null) {
+                positionMs = 0L
+                durationMs = 0L
+            }
             delay(400)
         }
     }
@@ -730,7 +738,8 @@ private fun PlayerDock(
                     if (durationMs > 0) vm.seekTo((value * durationMs).toLong())
                 },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                tag = "dock"
+                tag = "dock",
+                resetKey = state.current?.id
             )
         }
 

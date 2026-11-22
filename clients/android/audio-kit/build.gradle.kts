@@ -9,7 +9,7 @@ import org.gradle.api.publish.maven.MavenPublication
 // 写成命名常量而不是直写 `version = "…"`,是因为 tools/tag-release.sh 会扫
 // apps/ 里 `version = "x.y.z"` 形式的字面量来防「应用版本号被写死」——
 // 直写会被当成违规(实测挡下过一次发版)。
-val orzAudioCoreVersion = "1.3.0"
+val orzAudioCoreVersion = "1.3.1"
 
 plugins {
     id("com.android.library")
