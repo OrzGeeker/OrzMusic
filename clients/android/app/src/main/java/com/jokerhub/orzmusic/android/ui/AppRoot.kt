@@ -177,6 +177,12 @@ fun AppRoot(vm: AppViewModel = viewModel()) {
 
     var positionMs by remember { mutableLongStateOf(0L) }
     var durationMs by remember { mutableLongStateOf(0L) }
+    // 换歌的瞬间就把进度归零：轮询要等下一次采样，否则会短暂把上一首的进度
+    // 画在新歌上（真机反馈「进度带到下一首」）。
+    LaunchedEffect(state.current?.id) {
+        positionMs = 0L
+        durationMs = ((state.current?.duration ?: 0.0) * 1000).toLong()
+    }
     LaunchedEffect(state.current?.id, state.isPlaying, state.decoding) {
         while (isActive) {
             positionMs = vm.playbackPositionMs

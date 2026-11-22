@@ -120,12 +120,11 @@ class MainActivity : ComponentActivity() {
         when (event.keyCode) {
             // 射线指着进度条时，左右键直接 ±5s（不依赖 Compose 焦点，见 SeekBarZones）。
             KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                if (event.action == KeyEvent.ACTION_DOWN && RayPointer.valid) {
-                    val delta = if (event.keyCode == KeyEvent.KEYCODE_DPAD_LEFT) -5_000L else 5_000L
-                    if (SeekBarZones.seekByAt(RayPointer.x, RayPointer.y, delta)) {
-                        Log.i("OrzSeek", "ray key seek $delta at (${RayPointer.x},${RayPointer.y})")
-                        return true
-                    }
+                if (event.action == KeyEvent.ACTION_DOWN && RayPointer.valid &&
+                    SeekBarZones.seekByDirectionKey(event.keyCode, RayPointer.x, RayPointer.y)
+                ) {
+                    Log.i("OrzSeek", "key seek ${event.keyCode} at (${RayPointer.x},${RayPointer.y})")
+                    return true
                 }
                 return super.dispatchKeyEvent(event)
             }
@@ -190,6 +189,15 @@ class MainActivity : ComponentActivity() {
         }
         if (key != null) {
             lastStickNavAt = now
+            // ⚠️ 这里必须自己做 seek 判定：下面 sendTapKey 直接调 super.dispatchKeyEvent，
+            // 会绕过 dispatchKeyEvent 里「射线指着进度条 → ±5s」那条分支。Pico 的十字键
+            // 正是以摇杆轴送进来的，所以左右键调进度一直不生效。
+            if (RayPointer.valid &&
+                SeekBarZones.seekByDirectionKey(key, RayPointer.x, RayPointer.y)
+            ) {
+                Log.i("OrzSeek", "stick key seek $key at (${RayPointer.x},${RayPointer.y})")
+                return true
+            }
             sendTapKey(key)
             return true
         }

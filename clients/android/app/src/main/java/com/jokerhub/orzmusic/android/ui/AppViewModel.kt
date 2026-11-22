@@ -400,6 +400,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** 与 Web 端 `OrzAudioPlayer.play(song)` 同层:决定走 direct/server/native。 */
     private fun startSong(song: Song) {
+        // 先把上一首停掉再换歌：否则下载/准备新文件期间旧歌还在放，进度条会
+        // 「带着上一首的进度」显示新歌（真机反馈过）。
+        playback.stop()
         when (val route = PlaybackPolicy.route(song, repository, RuntimeDecoderManifest)) {
             is PlaybackRoute.Remote -> {
                 playback.play(

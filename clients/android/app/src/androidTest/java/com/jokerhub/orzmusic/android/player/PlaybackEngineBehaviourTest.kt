@@ -128,6 +128,61 @@ class PlaybackEngineBehaviourTest {
     }
 
     /**
+     * 模拟连按左右键（±5s，和 `AppViewModel.seekBy` 同一个算法）：
+     * 每次都基于当前播放位置再加/减，连按 5 次应该稳定后退 25 秒。
+     */
+    @Test
+    fun repeatedSeekByStepsBackFiveSecondsEach() {
+        open()
+        playFile("mod", mod(patterns = 8), "seekby-mod")
+        assertTrue("没有开始播放：${errors.toList()}", awaitUntil(20_000) { snapshot().playing })
+        Thread.sleep(800)
+        instrumentation.runOnMainSync { player.seekTo(30_000) }
+        Thread.sleep(1_000)
+
+        val start = snapshot().positionMs
+        repeat(5) {
+            val current = snapshot().positionMs
+            instrumentation.runOnMainSync { player.seekTo((current - 5_000).coerceAtLeast(0)) }
+            Thread.sleep(400)
+        }
+        Thread.sleep(600)
+        val end = snapshot().positionMs
+        println("SEEKBY start=$start end=$end expected=${start - 25_000}")
+        assertEquals("按左右键报错：${errors.toList()}", emptyList<String>(), errors.toList())
+        assertTrue(
+            "连按 5 次 ±5s 没走到位（start=$start end=$end）",
+            end <= start - 20_000 && end >= start - 30_000
+        )
+    }
+
+    /**
+     * 切歌必须重置位置：新歌从 0 开始，时长也要换成新歌的。
+     */
+    @Test
+    fun switchingTracksResetsPosition() {
+        open()
+        playFile("mod", mod(patterns = 8), "switch-a")
+        assertTrue("A 没开始：${errors.toList()}", awaitUntil(20_000) { snapshot().playing })
+        Thread.sleep(1_200)
+        instrumentation.runOnMainSync { player.seekTo(40_000) }
+        Thread.sleep(1_000)
+        val aPos = snapshot().positionMs
+
+        playFile("mod", mod(patterns = 2), "switch-b")
+        // 立刻读一次（模拟界面 400ms 轮询）
+        Thread.sleep(120)
+        val right = snapshot()
+        assertTrue("B 没开始：${errors.toList()}", awaitUntil(20_000) { snapshot().playing })
+        Thread.sleep(800)
+        val b = snapshot()
+        println("SWITCH aPos=$aPos rightAfter=${right.positionMs} bPos=${b.positionMs} bDur=${b.durationMs}")
+
+        assertTrue("切歌后应该从头开始，实际 ${right.positionMs}ms（带走了上一首 $aPos）", right.positionMs < 3_000)
+        assertTrue("新歌播起来后位置也不该是上一首的 ${b.positionMs}", b.positionMs < 5_000)
+    }
+
+    /**
      * 解码器不支持 `ORZ_CAP_SEEK` 的格式（sc68 / sid / gme 系）走「重解码快进」。
      *
      * 真机上 sc68 的 `orz_decoder_seek` 返回不支持 → 进度条弹回原位、音乐不跳。

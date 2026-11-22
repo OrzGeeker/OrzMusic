@@ -1,6 +1,7 @@
 package com.jokerhub.orzmusic.android
 
 import android.graphics.Rect
+import android.view.KeyEvent
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -45,6 +46,45 @@ class SeekBarZonesTest {
         try {
             assertFalse(SeekBarZones.seekByAt(500f, 300f, -5_000)) // 在别处
             assertFalse(SeekBarZones.seekByAt(950f, 720f, -5_000)) // 超出右边界
+        } finally {
+            SeekBarZones.unregister(zone)
+        }
+    }
+
+    /**
+     * Pico 的十字键是以**摇杆轴**进来的，`dispatchGenericMotionEvent` 会把它合成成
+     * 方向键并用 `sendTapKey` 发送 —— 那条路绕过了 `dispatchKeyEvent`，所以判定必须
+     * 能单独调用（这正是 0.8.8 之前左右键不生效的根因）。
+     */
+    @Test
+    fun directionKeysAdjustWhenRayIsOnTheBar() {
+        var captured = 0L
+        val zone = SeekBarZones.Zone("test").apply {
+            bounds = Rect(100, 700, 900, 740)
+            onSeekBy = { captured = it }
+        }
+        SeekBarZones.register(zone)
+        try {
+            assertTrue(SeekBarZones.seekByDirectionKey(KeyEvent.KEYCODE_DPAD_LEFT, 400f, 720f))
+            assertEquals(-5_000L, captured)
+            assertTrue(SeekBarZones.seekByDirectionKey(KeyEvent.KEYCODE_DPAD_RIGHT, 400f, 720f))
+            assertEquals(5_000L, captured)
+        } finally {
+            SeekBarZones.unregister(zone)
+        }
+    }
+
+    @Test
+    fun directionKeysPassThroughWhenRayIsElsewhere() {
+        val zone = SeekBarZones.Zone("test").apply {
+            bounds = Rect(100, 700, 900, 740)
+            onSeekBy = { error("射线不在进度条上，不该 seek") }
+        }
+        SeekBarZones.register(zone)
+        try {
+            assertFalse(SeekBarZones.seekByDirectionKey(KeyEvent.KEYCODE_DPAD_LEFT, 400f, 200f))
+            // 上下键永远不归这里管
+            assertFalse(SeekBarZones.seekByDirectionKey(KeyEvent.KEYCODE_DPAD_UP, 400f, 720f))
         } finally {
             SeekBarZones.unregister(zone)
         }

@@ -1,6 +1,7 @@
 package com.jokerhub.orzmusic.android
 
 import android.graphics.Rect
+import android.view.KeyEvent
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -45,5 +46,21 @@ internal object SeekBarZones {
         val zone = zoneAt(x, y) ?: return false
         zone.onSeekBy(deltaMs)
         return true
+    }
+
+    /**
+     * 左右方向键 → ±5s。
+     *
+     * 两个来源都会走到这里：`dispatchKeyEvent` 里的真·方向键，以及
+     * `dispatchGenericMotionEvent` 里把摇杆轴合成出来的方向键（Pico 的十字键就是
+     * 后者，而合成时用的是 `sendTapKey`，会绕过按键分发 —— 这是左右键一直不生效的根因）。
+     */
+    fun seekByDirectionKey(keyCode: Int, x: Float, y: Float): Boolean {
+        val delta = when (keyCode) {
+            KeyEvent.KEYCODE_DPAD_LEFT -> -5_000L
+            KeyEvent.KEYCODE_DPAD_RIGHT -> 5_000L
+            else -> return false
+        }
+        return seekByAt(x, y, delta)
     }
 }
