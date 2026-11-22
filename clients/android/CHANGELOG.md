@@ -5,6 +5,23 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [0.8.10](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.8.9...android-v0.8.10) - 2026-11-22
+
+**左右键调进度整条下线。** 这条线试了三版（0.8.4 走 Compose 焦点、0.8.8 走
+Activity 层命中判定、0.8.9 覆盖摇杆轴合成）都没能在真机上稳定生效，还把 0.8.6
+已经验收的丝滑拖动带坏了。
+
+进度条回到 0.8.6 的形态，只保留三种交互：**点击轨道**、**拖动（本地预览 +
+松手 seek 一次）**、**射线悬停 + 扳机跳到落点**。要 ±5s/±15s 请用正在播放页的
+四个按钮（它们走 `vm.seekBy`，一直可用）。
+
+保留 0.8.9 里与左右键无关的修复：切歌会先停旧播放、进度立即归零，不再把上一首
+的进度带到新歌。
+
+### 移除
+
+- revert(android): 下线左右键调进度，进度条回到拖动/点击/射线确认 ([a2cd3cb](https://github.com/OrzGeeker/OrzMusic/commit/a2cd3cb))
+
 ## [0.8.9](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.8.8...android-v0.8.9) - 2026-11-22
 
 两个真机问题，根因都很具体：
