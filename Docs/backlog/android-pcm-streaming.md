@@ -154,6 +154,24 @@ Modifier.onKeyEvent { ... }.focusable()
 回归：`PlaybackEngineBehaviourTest.seekFallsBackToRenderSkipWhenDecoderCannotSeek`
 （用 `forceSkipSeek` 强制走兜底路径，不需要网络）。
 
+## 进度条交互的最终形态（0.8.10 定案）
+
+支持的三种操作，全部走指针，不依赖 Compose 焦点：
+
+| 操作 | 实现 |
+|---|---|
+| 点击轨道 | `detectTapGestures` → `onSeek(落点比例)` |
+| 拖动 | 拖动中只更新本地预览（跟手），**松手才 seek 一次**；位置追上后交回真实值 |
+| 射线悬停 + 扳机 | `onKeyEvent` 里的 `DirectionCenter/Enter` → `RayPointer.fractionX()` 换算落点 |
+
+**左右键调进度已下线，不要再加回来**：Pico 的十字键是以 `SOURCE_JOYSTICK`
+轴值送进来的，`MainActivity.dispatchGenericMotionEvent` 会把它合成成 DPAD 键
+并用 `sendTapKey()` 直接 `super.dispatchKeyEvent(...)`——绕过 Activity 层的任何判定；
+而 Compose 那条路要求进度条持有焦点，真机上 hover 拿不到焦点（logcat 里没有
+`focus@`）。两条路都试过（0.8.4–0.8.9），既要稳定又要不和拖动抢事件做不到，
+用户已决定只保留拖动/点击/射线确认。要调 ±5s 请用正在播放页的 `−15s/−5s/+5s/+15s`
+按钮（它们走 `vm.seekBy`）。
+
 ## 验收清单（真机）
 
 - [ ] `xm` / `mod` 首播 < 500ms（旧路径数秒）

@@ -729,7 +729,6 @@ private fun PlayerDock(
                     Log.i("OrzSeek", "dock.onSeek fraction=$value duration=$durationMs")
                     if (durationMs > 0) vm.seekTo((value * durationMs).toLong())
                 },
-                onSeekBy = vm::seekBy,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 tag = "dock"
             )

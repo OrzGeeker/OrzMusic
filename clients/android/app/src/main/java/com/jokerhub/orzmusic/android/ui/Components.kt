@@ -34,9 +34,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.DisposableEffect
-import com.jokerhub.orzmusic.android.SeekBarZones
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableFloatStateOf
@@ -946,27 +943,17 @@ fun ProgressTrack(
 fun SeekBar(
     fraction: Float,
     onSeek: (Float) -> Unit,
-    onSeekBy: (Long) -> Unit,
     modifier: Modifier = Modifier,
     /** 只用于日志区分是哪个进度条（`dock` / `nowplaying`）。 */
     tag: String = "seekbar"
 ) {
     val focus = remember { FocusRequester() }
-    // 射线/鼠标的横向落点（0..1）。-1 表示这次没有任何指针悬停过，
-    // 纯 D-pad 用户据此退回只看左右键。
+    // 射线/鼠标的横向落点（0..1）。-1 表示这次没有任何指针悬停过。
     var pointerFraction by remember { mutableFloatStateOf(-1f) }
     // 控件在窗口里的位置：射线坐标是窗口坐标系，要换算成控件内部比例。
     var barLeft by remember { mutableFloatStateOf(0f) }
     var barWidth by remember { mutableFloatStateOf(0f) }
     // 拖动/点击后的本地预览位置：先跟手画，等播放器真追上来再交回去。
-    var prefersFocus by remember { mutableStateOf(false) }
-    // 把命中区注册给 Activity：射线指着进度条时左右键就能 ±5s（不依赖 Compose 焦点）。
-    val zone = remember(tag) { SeekBarZones.Zone(tag) }
-    SideEffect { zone.onSeekBy = onSeekBy }
-    DisposableEffect(zone) {
-        SeekBarZones.register(zone)
-        onDispose { SeekBarZones.unregister(zone) }
-    }
     var previewFraction by remember { mutableFloatStateOf(-1f) }
     val shownFraction = if (previewFraction >= 0f) previewFraction else fraction
     // 播放器位置追上来了（或 1.2s 都没追上）就把预览交回给真实位置。
@@ -984,43 +971,20 @@ fun SeekBar(
             .fillMaxWidth()
             .height(40.dp)
             .onGloballyPositioned { coords ->
-                val b = coords.positionInWindow()
-                val w = coords.size.width.toFloat()
-                val h = coords.size.height.toFloat()
-                barLeft = b.x
-                barWidth = w
-                zone.bounds = android.graphics.Rect(
-                    b.x.toInt(),
-                    b.y.toInt(),
-                    (b.x + w).toInt(),
-                    (b.y + h).toInt()
-                )
+                barLeft = coords.positionInWindow().x
+                barWidth = coords.size.width.toFloat()
             }
             .focusOnHover(focus)
-            .onFocusChanged { st ->
-                prefersFocus = st.isFocused
-                if (st.isFocused) Log.i(SEEK_TAG, "focus@$tag")
-            }
             // ⚠️ onKeyEvent 必须在 focusable 之前：Compose 把按键冒泡给
-            // 「焦点节点的祖先 modifier」，反过来写（focusable().onKeyEvent{}）
-            // 处理器在焦点节点内部，收不到任何按键 —— 0.8.2 的左右键 ±5s 就是这样失效的。
+            // 「焦点节点的祖先 modifier」，反过来写处理器就在焦点节点内部，收不到按键。
             .onKeyEvent { event ->
-                // 左右键只在「进度条自己有焦点」时才调整；没焦点时按键要留给
-                // Compose 做焦点移动，否则整个界面的方向键导航会坏掉。
-                Log.i(SEEK_TAG, "key@$tag ${event.key} type=${event.type}")
                 if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
                 when (event.key) {
-                    Key.DirectionLeft -> {
-                        Log.i(SEEK_TAG, "seekBy@$tag -5000")
-                        onSeekBy(-5_000)
-                        true
-                    }
-                    Key.DirectionRight -> {
-                        Log.i(SEEK_TAG, "seekBy@$tag +5000")
-                        onSeekBy(5_000)
-                        true
-                    }
-                    // 射线指到哪，确认就跳到哪。优先读 RayPointer（窗口坐标，
+                    // 只处理确认键：射线指到哪，确认就跳到哪。
+                    // 左右键调进度已下线（见 Docs/backlog/android-pcm-streaming.md）——
+                    // Pico 的十字键走摇杆轴合成、拿不到 Compose 焦点，几版都没能稳定，
+                    // 而且会跟拖动抢事件。方向键留回 Compose 做焦点移动。
+                    // 优先读 RayPointer（窗口坐标，
                     // hover 一发生就有），退回本控件自己跟踪的指针比例。
                     Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
                         val target = RayPointer.fractionX(barLeft, barWidth)
@@ -1091,7 +1055,7 @@ fun SeekBar(
         contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val trackHeight = (if (prefersFocus) 6.dp else 4.dp).toPx()
+            val trackHeight = 4.dp.toPx()
             val y = size.height / 2f
             val radius = trackHeight / 2f
             val trackWidth = size.width
@@ -1110,7 +1074,7 @@ fun SeekBar(
                     cornerRadius = CornerRadius(radius, radius)
                 )
             }
-            val thumbRadius = (if (prefersFocus) 8.dp else 6.dp).toPx()
+            val thumbRadius = 6.dp.toPx()
             val thumbCenter = Offset(
                 progress.coerceIn(thumbRadius, trackWidth - thumbRadius),
                 y

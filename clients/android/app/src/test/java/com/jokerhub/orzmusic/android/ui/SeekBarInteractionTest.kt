@@ -4,15 +4,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.performKeyInput
-import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.unit.dp
 import com.jokerhub.orzmusic.android.RayPointer
@@ -40,7 +39,6 @@ class SeekBarInteractionTest {
 
     private var seeked: Float = -1f
     private var seekCount = 0
-    private var seekBy: Long = 0
 
     private fun content() {
         rule.setContent {
@@ -48,7 +46,6 @@ class SeekBarInteractionTest {
                 SeekBar(
                     fraction = 0.2f,
                     onSeek = { seeked = it; seekCount++ },
-                    onSeekBy = { seekBy = it },
                     modifier = Modifier
                         .size(320.dp, 40.dp)
                         .testTag("seekbar")
@@ -92,17 +89,6 @@ class SeekBarInteractionTest {
     }
 
     @Test
-    fun dpadLeftAndRightSeekBy5s() {
-        content()
-        rule.onNodeWithTag("seekbar").confirmWithRay()
-        rule.onNodeWithTag("seekbar").requestFocus()
-        rule.onNodeWithTag("seekbar").performKeyInput { pressKey(Key.DirectionRight) }
-        assertEquals(5_000L, seekBy)
-        rule.onNodeWithTag("seekbar").performKeyInput { pressKey(Key.DirectionLeft) }
-        assertEquals(-5_000L, seekBy)
-    }
-
-    @Test
     fun confirmKeyDoesNothingWhenRayWasNeverSeen() {
         content()
         // 没有 hover 过（纯 D-pad 用户）：不能瞎跳，交给左右键。
@@ -123,5 +109,5 @@ class SeekBarInteractionTest {
 @OptIn(androidx.compose.ui.test.ExperimentalTestApi::class)
 private fun SemanticsNodeInteraction.confirmWithRay() {
     requestFocus()
-    performKeyInput { pressKey(Key.DirectionCenter) }
+    performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionCenter) }
 }

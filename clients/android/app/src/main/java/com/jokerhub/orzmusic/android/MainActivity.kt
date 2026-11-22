@@ -2,11 +2,9 @@ package com.jokerhub.orzmusic.android
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.annotation.SuppressLint
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
-import android.util.Log
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -118,16 +116,6 @@ class MainActivity : ComponentActivity() {
             return true
         }
         when (event.keyCode) {
-            // 射线指着进度条时，左右键直接 ±5s（不依赖 Compose 焦点，见 SeekBarZones）。
-            KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                if (event.action == KeyEvent.ACTION_DOWN && RayPointer.valid &&
-                    SeekBarZones.seekByDirectionKey(event.keyCode, RayPointer.x, RayPointer.y)
-                ) {
-                    Log.i("OrzSeek", "key seek ${event.keyCode} at (${RayPointer.x},${RayPointer.y})")
-                    return true
-                }
-                return super.dispatchKeyEvent(event)
-            }
             // Pico 扳机有时就是 ENTER（source 带 GAMEPAD）；只在这个来源下映射，
             // 否则会抢走系统输入法/外接键盘的 Enter 键。
             KeyEvent.KEYCODE_ENTER,
@@ -189,15 +177,6 @@ class MainActivity : ComponentActivity() {
         }
         if (key != null) {
             lastStickNavAt = now
-            // ⚠️ 这里必须自己做 seek 判定：下面 sendTapKey 直接调 super.dispatchKeyEvent，
-            // 会绕过 dispatchKeyEvent 里「射线指着进度条 → ±5s」那条分支。Pico 的十字键
-            // 正是以摇杆轴送进来的，所以左右键调进度一直不生效。
-            if (RayPointer.valid &&
-                SeekBarZones.seekByDirectionKey(key, RayPointer.x, RayPointer.y)
-            ) {
-                Log.i("OrzSeek", "stick key seek $key at (${RayPointer.x},${RayPointer.y})")
-                return true
-            }
             sendTapKey(key)
             return true
         }
@@ -234,10 +213,6 @@ class MainActivity : ComponentActivity() {
         }, 80L)
     }
 
-    // `super.dispatchKeyEvent` 被 lint 标记 RestrictedApi（只有 androidx 内部能用）。
-    // 这里必须用它：合成的 DPAD_CENTER 要按正常的 activity 按键分发走下去，
-    // `window.decorView.dispatchKeyEvent` 会绕过 IME/焦点链路，实测无效。
-    @SuppressLint("RestrictedApi")
     private fun sendTapKey(keyCode: Int) {
         val now = SystemClock.uptimeMillis()
         super.dispatchKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0))
