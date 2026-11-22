@@ -5,6 +5,19 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [0.8.6](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.8.5...android-v0.8.6) - 2026-11-22
+
+0.8.5 之后拖动进度条能 seek 了，但**拖的时候一卡一卡**：每个 pointer-move 都
+`onSeek` → 会话主线程 → pause/flush/解码器 seek，一次拖动几十次把主线程堵住。
+
+现在拖动只在**松手时 seek 一次**，拖动过程只用本地预览跟手画；播放器侧改成
+异步、只保留最新目标的 seek 队列。`OrzSeek` 日志也细分到 `pointer@`/`tap@`/
+`dragStart@`/`dragEnd@`/`dock.onSeek`/`asyncSeek`，方便继续定位主页那条进度条。
+
+### 修复
+
+- fix(android): 拖动进度条只在松手时 seek 一次，拖动过程本地预览 ([aa5b425](https://github.com/OrzGeeker/OrzMusic/commit/aa5b425))
+
 ## [0.8.5](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.8.4...android-v0.8.5) - 2026-11-22
 
 0.8.4 之后仍有一个真问题：拖动进度条时音乐不跳、进度条立刻弹回原位。
