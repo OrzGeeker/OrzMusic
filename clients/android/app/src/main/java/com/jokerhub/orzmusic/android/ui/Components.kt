@@ -956,6 +956,7 @@ fun SeekBar(
     var barLeft by remember { mutableFloatStateOf(0f) }
     var barWidth by remember { mutableFloatStateOf(0f) }
     // 拖动/点击后的本地预览位置：先跟手画，等播放器真追上来再交回去。
+    var prefersFocus by remember { mutableStateOf(false) }
     var previewFraction by remember { mutableFloatStateOf(-1f) }
     val shownFraction = if (previewFraction >= 0f) previewFraction else fraction
     // 播放器位置追上来了（或 1.2s 都没追上）就把预览交回给真实位置。
@@ -977,14 +978,29 @@ fun SeekBar(
                 barWidth = coords.size.width.toFloat()
             }
             .focusOnHover(focus)
+            .onFocusChanged { st ->
+                prefersFocus = st.isFocused
+                if (st.isFocused) Log.i(SEEK_TAG, "focus@$tag")
+            }
             // ⚠️ onKeyEvent 必须在 focusable 之前：Compose 把按键冒泡给
             // 「焦点节点的祖先 modifier」，反过来写（focusable().onKeyEvent{}）
             // 处理器在焦点节点内部，收不到任何按键 —— 0.8.2 的左右键 ±5s 就是这样失效的。
             .onKeyEvent { event ->
+                // 左右键只在「进度条自己有焦点」时才调整；没焦点时按键要留给
+                // Compose 做焦点移动，否则整个界面的方向键导航会坏掉。
+                Log.i(SEEK_TAG, "key@$tag ${event.key} type=${event.type}")
                 if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
                 when (event.key) {
-                    Key.DirectionLeft -> { onSeekBy(-5_000); true }
-                    Key.DirectionRight -> { onSeekBy(5_000); true }
+                    Key.DirectionLeft -> {
+                        Log.i(SEEK_TAG, "seekBy@$tag -5000")
+                        onSeekBy(-5_000)
+                        true
+                    }
+                    Key.DirectionRight -> {
+                        Log.i(SEEK_TAG, "seekBy@$tag +5000")
+                        onSeekBy(5_000)
+                        true
+                    }
                     // 射线指到哪，确认就跳到哪。优先读 RayPointer（窗口坐标，
                     // hover 一发生就有），退回本控件自己跟踪的指针比例。
                     Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
@@ -1056,7 +1072,7 @@ fun SeekBar(
         contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val trackHeight = 4.dp.toPx()
+            val trackHeight = (if (prefersFocus) 6.dp else 4.dp).toPx()
             val y = size.height / 2f
             val radius = trackHeight / 2f
             val trackWidth = size.width
@@ -1075,7 +1091,7 @@ fun SeekBar(
                     cornerRadius = CornerRadius(radius, radius)
                 )
             }
-            val thumbRadius = 6.dp.toPx()
+            val thumbRadius = (if (prefersFocus) 8.dp else 6.dp).toPx()
             val thumbCenter = Offset(
                 progress.coerceIn(thumbRadius, trackWidth - thumbRadius),
                 y
