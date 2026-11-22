@@ -5,6 +5,19 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [0.8.13](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.8.12...android-v0.8.13) - 2026-11-22
+
+### 修复
+
+- fix(android): 修掉 0.8.11 升 OrzAudioCore 1.3.1 时漏改的版本口径 (#66) ([40fd08d](https://github.com/OrzGeeker/OrzMusic/commit/40fd08d))
+
+设置页「解码：」后面显示的核心版本之前还停在 `1.3.0`：这个字符串来自
+`decoder-profile.json` 的 `sdk` 字段（经 `gen-core-manifest.py` 生成），
+而 0.8.11 换核心时只改了 lock 与上游 manifest。现在显示
+`OrzAudioCore 1.3.1`，与随包 `liborzaudio.so` 的 `orz_build_info()`
+（`orzcore-1.3.1-m1`）一致，真机用例 `buildInfoMatchesLockedSdkVersion`
+也恢复通过。`THIRD_PARTY_NOTICES.md` 里随包分发的 SDK 版本一并改成 1.3.1。
+
 ## [0.8.12](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.8.11...android-v0.8.12) - 2026-11-22
 
 ### 修复
