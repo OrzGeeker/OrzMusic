@@ -1,4 +1,4 @@
-# Android 流式 PCM 播放（已实现，待真机验收）
+# Android 流式 PCM 播放（已实现；真机验收状态见文末）
 
 > 相关：[`Docs/android-decoder-packaging.md`](../android-decoder-packaging.md)
 
@@ -172,12 +172,21 @@ Modifier.onKeyEvent { ... }.focusable()
 用户已决定只保留拖动/点击/射线确认。要调 ±5s 请用正在播放页的 `−15s/−5s/+5s/+15s`
 按钮（它们走 `vm.seekBy`）。
 
-## 验收清单（真机）
+## 验收状态（2026-11-22 复核）
 
-- [ ] `xm` / `mod` 首播 < 500ms（旧路径数秒）
-- [ ] `sc68` 一首歌开始播放 < 1s，且不再写 `cache/pcm/`
-- [ ] seek 到 50% 后位置条与服务端 `duration` 一致
-- [ ] 静音 → 后台 → 锁屏继续播；通知栏切歌正常
-- [ ] 切歌时 `PcmStream` 全部 `close()`，无残留线程（`adb shell ps -T`)
-- [ ] 未装 decoder 的格式仍然走「引导到网页播放器」
-- [ ] 强制走旧路径（`decodeToWav`）仍可用作回退开关
+不是全部都在真机上量过；下表把「真机实测」「仪器化/代码层覆盖」「还没测」分开写，
+避免再挂一排看不出进度的空 checkbox。
+
+| 验收项 | 状态 | 证据 |
+|---|---|---|
+| `xm` / `mod` 首播 < 500ms | ✅ 真机 | 0.8.3 在 PICO A8110 量到 `play→playing=140ms`（[CHANGELOG](../../clients/android/CHANGELOG.md) 0.8.3 段）；当时未按格式分别记录，`xm`/`mod` 各自的首播值没有单独留档 |
+| `sc68` 首播 < 1s | ⚠️ 未单独量测 | 真机只量了模块曲路径；`sc68` 只有 seek 的渲染跳过记录（`applied=true skipRender=true now=90000`，同 CHANGELOG）。原理上首播不再等全曲解码，但没有实测数字 |
+| 不再写 `cache/pcm/` | ✅ 代码路径 | Native 路由只调 `MediaCache.rawFor()`（`AppViewModel.kt:468`）；写 WAV 的唯一调用点 `MediaCache.wavFor()`（内部 `decodeToWav`）现在**没有任何调用者** |
+| seek 到 50% 后位置条与服务端 `duration` 一致 | ✅ 仪器化 + 真机 | `app/src/androidTest/.../PlaybackEngineBehaviourTest.kt` 的 `seekJumpsToRequestedPositionAndKeepsPlaying`（位置追上目标值后还继续前进）；0.8.3 真机 `1530 → 30000 → 30786ms` |
+| 静音 → 后台 → 锁屏继续播；通知栏切歌正常 | ⚠️ 待真机复测 | 桥接层没问题（`MediaSession` 绑 `OrzPlaybackPlayer`），但 0.8.11–0.8.12 改过对外宣称的传输命令（去掉 `COMMAND_SEEK_BACK/FORWARD`），这次改动之后没有完整跑一遍后台/锁屏组合 |
+| 切歌时 `PcmStream` 全部 `close()`，无残留线程 | ✅ 真机 | 0.8.3 真机日志：切歌后无 `orz-pcm*` / `orz-native*` 残留线程 |
+| 未装 decoder 的格式仍走「引导到网页播放器」 | ✅ 代码路径 | `PlaybackRoute.Unsupported` → `AppViewModel.showUnsupported()` 提示「可以先在网页播放器里播放」；正在播放页有「在网页播放器打开」入口（`NowPlayingScreen.kt:336`） |
+| 强制走旧路径（`decodeToWav`）仍可用作回退开关 | ❌ 已失效 | `OrzAudioCore.decodeToWav()` 便利层还在，但唯一调用点 `MediaCache.wavFor()` 已无调用者 —— 现在它是死代码，**不是**开关。要留就先接一个显式开关（如调试项），不要就删掉 `wavFor()` |
+
+结论：只有 2 项还需要人：`sc68` 首播实测 + 改过 MediaSession 命令表后的一次后台/锁屏真机回归；
+「回退开关」需要先决策要留还是删。
