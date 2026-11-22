@@ -5,6 +5,19 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [0.8.12](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.8.11...android-v0.8.12) - 2026-11-22
+
+### 修复
+
+- fix(android): 不再对外提供快退/快进，左右键不会再偷偷改进度 ([64aff3c](https://github.com/OrzGeeker/OrzMusic/commit/64aff3c))
+
+进度条自身早已没有任何方向键处理（0.8.10 起），但**媒体会话的传输控制**还在：
+`COMMAND_SEEK_BACK/FORWARD` 一直对外宣称支持，Pico 把十字键映射成快退/快进后，
+Media3 就会调 `seekBack()/seekForward()` 真的改位置（实测 `6016ms → 24018ms`）。
+现在命令表里去掉这两个，`handleSeek()` 也兜底忽略。
+
+需要 −5 / −15 / +5 / +15 秒请用正在播放页的按钮（走 `seekTo`，不受影响）。
+
 ## [0.8.11](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.8.10...android-v0.8.11) - 2026-11-22
 
 ### 修复
