@@ -5,6 +5,19 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [0.8.8](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.8.7...android-v0.8.8) - 2026-11-22
+
+拖动已经顺了。这轮修「左右键调进度」：真机实测按方向键时进度条**拿不到 Compose
+焦点**（logcat 里一条 `focus@` 都没有），方向键全被「移动焦点」吃掉。
+
+现在射线指着进度条时，`MainActivity.dispatchKeyEvent` 直接判定命中区并 ±5s
+（`SeekBarZones` 用窗口坐标注册），不再依赖焦点；射线不在进度条上时按键原样
+交回 Compose 做焦点移动。
+
+### 修复
+
+- fix(android): 射线指着进度条时左右键直接 ±5s ([254d718](https://github.com/OrzGeeker/OrzMusic/commit/254d718))
+
 ## [0.8.7](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.8.6...android-v0.8.7) - 2026-11-22
 
 拖动已经顺了（0.8.6）。本轮处理「左右键调整进度不工作」：左右键只在进度条
