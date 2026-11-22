@@ -1,4 +1,4 @@
-# Android 流式 PCM 播放（已实现；真机验收状态见文末）
+# Android 流式 PCM 播放（已实现；验收状态见文末）
 
 > 相关：[`Docs/android-decoder-packaging.md`](../android-decoder-packaging.md)
 
@@ -180,13 +180,36 @@ Modifier.onKeyEvent { ... }.focusable()
 | 验收项 | 状态 | 证据 |
 |---|---|---|
 | `xm` / `mod` 首播 < 500ms | ✅ 真机 | 0.8.3 在 PICO A8110 量到 `play→playing=140ms`（[CHANGELOG](../../clients/android/CHANGELOG.md) 0.8.3 段）；当时未按格式分别记录，`xm`/`mod` 各自的首播值没有单独留档 |
-| `sc68` 首播 < 1s | ⚠️ 未单独量测 | 真机只量了模块曲路径；`sc68` 只有 seek 的渲染跳过记录（`applied=true skipRender=true now=90000`，同 CHANGELOG）。原理上首播不再等全曲解码，但没有实测数字 |
-| 不再写 `cache/pcm/` | ✅ 代码路径 | Native 路由只调 `MediaCache.rawFor()`（`AppViewModel.kt:468`）；写 WAV 的唯一调用点 `MediaCache.wavFor()`（内部 `decodeToWav`）现在**没有任何调用者** |
+| `sc68` 首播 < 1s | ✅ 宿主基准（真机待确认） | `Tests/Benchmarks/first-pcm-latency.c` 直接量 `orz_decoder_create_memory` + 首批 4096 帧（= 能开始喂 AudioTrack 的时刻）：**sc68 82–209ms**（3 首各 3 次，x86_64）。同法 `xm` 147–159ms、`mod` 109–131ms。ARM 主频低通常 1.5–3 倍，仍在阈值内，但没有 Android 真机数字 |
+| 不再写 `cache/pcm/` | ✅ 代码路径 + 死代码已删 | Native 路由只调 `MediaCache.rawFor()`（`AppViewModel.kt:468`）；写 WAV 的唯一入口 `MediaCache.wavFor()`、`trimPcmCache()`、`CacheKey.wav()` 已全部删除，代码里不再有任何 `cache/pcm/` 写入点 |
 | seek 到 50% 后位置条与服务端 `duration` 一致 | ✅ 仪器化 + 真机 | `app/src/androidTest/.../PlaybackEngineBehaviourTest.kt` 的 `seekJumpsToRequestedPositionAndKeepsPlaying`（位置追上目标值后还继续前进）；0.8.3 真机 `1530 → 30000 → 30786ms` |
-| 静音 → 后台 → 锁屏继续播；通知栏切歌正常 | ⚠️ 待真机复测 | 桥接层没问题（`MediaSession` 绑 `OrzPlaybackPlayer`），但 0.8.11–0.8.12 改过对外宣称的传输命令（去掉 `COMMAND_SEEK_BACK/FORWARD`），这次改动之后没有完整跑一遍后台/锁屏组合 |
+| 静音 → 后台 → 锁屏继续播；通知栏切歌正常 | 🟡 命令表已锁定，真机组合待跑 | 新增 `app/src/test/.../PlaybackCommandsTest.kt`：`AVAILABLE_COMMANDS` 不含 `SEEK_BACK/FORWARD`，且播放/暂停、`seekTo`、切歌、音量、倍速都在 —— 0.8.11–0.8.12 改的就是这张表，现在改动会有单测拦。剩下的「按 HOME/锁屏后不断播、静音状态不被 reset」属于系统行为，仍需一次真机回归（见下面的复测步骤） |
 | 切歌时 `PcmStream` 全部 `close()`，无残留线程 | ✅ 真机 | 0.8.3 真机日志：切歌后无 `orz-pcm*` / `orz-native*` 残留线程 |
 | 未装 decoder 的格式仍走「引导到网页播放器」 | ✅ 代码路径 | `PlaybackRoute.Unsupported` → `AppViewModel.showUnsupported()` 提示「可以先在网页播放器里播放」；正在播放页有「在网页播放器打开」入口（`NowPlayingScreen.kt:336`） |
-| 强制走旧路径（`decodeToWav`）仍可用作回退开关 | ❌ 已失效 | `OrzAudioCore.decodeToWav()` 便利层还在，但唯一调用点 `MediaCache.wavFor()` 已无调用者 —— 现在它是死代码，**不是**开关。要留就先接一个显式开关（如调试项），不要就删掉 `wavFor()` |
+| 强制走旧路径（`decodeToWav`）仍可用作回退开关 | 🗑️ 已按决策删除 | 该条原本就名不副实（`wavFor()` 无调用者）。0.8.13 之后清掉死代码：`MediaCache.wavFor()` / `trimPcmCache()` / `MAX_PCM_CACHE_BYTES` / `CacheKey.wav()` 全部删除；`OrzAudioCore.decodeToWav()` 作为 AAR 公开 API 保留，但 App 内不再引用。真要回退只能靠回滚 APK |
 
-结论：只有 2 项还需要人：`sc68` 首播实测 + 改过 MediaSession 命令表后的一次后台/锁屏真机回归；
-「回退开关」需要先决策要留还是删。
+结论：代码侧已经没有悬空项（死代码已删、命令表有单测锁定）。只剩一件需要人：一次真机回归，
+把 `sc68`/`xm`/`mod` 的首播数字和「静音 → 后台 → 锁屏 → 通知栏切歌」按下面步骤跑一遍，
+有数字就替换掉这里的「宿主基准」。
+
+### 真机复测步骤（一次性，10 分钟）
+
+```bash
+cd clients/android && ./gradlew :app:installDebug
+# 1) 首播：logcat 里已有 `play→playing` 那条（0.8.3 就是靠它量的），
+#    分别点一首 sc68 / xm / mod，记 ms 数
+adb logcat -c && adb logcat | grep -E "play→playing|play->playing"
+# 2) 后台/锁屏：播放中按 HOME → 熄屏 → 亮屏解锁，确认进度继续前进；
+#    通知栏切上/下一首、暂停/继续各一次
+adb shell dumpsys media_session | grep -A3 "OrzMusic"
+# 3) 静音后进后台：App 内音量置 0 → HOME → 通知栏恢复播放，确认音量状态不被重置
+```
+
+本机基准复跑（无需 Android）：
+
+```bash
+gcc -O2 -o /tmp/first-pcm-latency Tests/Benchmarks/first-pcm-latency.c \
+  -I.audio-core-sdk/server/native/include -L.audio-core-sdk/server/native/lib \
+  -lOrzAudioCore -Wl,-rpath,$PWD/.audio-core-sdk/server/native/lib
+/tmp/first-pcm-latency "keygenmusic/.../AGiLE - Crime Wave intro.sc68" sc68
+```

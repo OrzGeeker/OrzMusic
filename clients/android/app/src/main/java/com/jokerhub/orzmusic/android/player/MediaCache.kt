@@ -2,8 +2,6 @@ package com.jokerhub.orzmusic.android.player
 
 import android.content.Context
 import com.jokerhub.orzmusic.core.model.Song
-import com.jokerhub.orzmusic.audiokit.OrzAudioCore
-import com.jokerhub.orzmusic.core.playback.DecoderManifest
 import com.jokerhub.orzmusic.core.util.CacheKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -13,11 +11,12 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 
 /**
- * wasmDecode 曲目的本地缓存:
+ * wasmDecode / 本地可解曲目的原始文件缓存:
  *
- *   1. 下载原始模块文件 → cache/raw/<id>.<format>
- *   2. 用 OrzAudioCore 解成 WAV → cache/pcm/<id>-<decoderNamespace>.wav
- *   3. 平台播放器播放 WAV
+ *   下载原始模块文件 → cache/raw/<id>.<format> → 交给 `PcmStream` 流式解码
+ *
+ * 0.8.1 之前这里还会把整首曲解成 WAV（`cache/pcm/`，一首十几 MB），流式播放上线后
+ * 那条路径就没有调用者了，已随 0.8.13 一并删除。
  *
  * 不做任何策略判断 —— 路由由 core 的 `PlaybackPolicy` 决定,
  * 这里只接收已经拼好的 raw URL。
@@ -47,23 +46,6 @@ class MediaCache(context: Context) {
         raw
     }
 
-    suspend fun wavFor(song: Song, rawUrl: String): File = withContext(Dispatchers.IO) {
-        if (!OrzAudioCore.isAvailable) {
-            error("当前设备的 ABI 没有原生解码器")
-        }
-
-        val raw = File(root, CacheKey.raw(song))
-        if (!raw.isFile || raw.length() < 32L) {
-            raw.parentFile?.mkdirs()
-            download(rawUrl, raw)
-        }
-
-        val wav = File(root, CacheKey.wav(song, DecoderManifest.CACHE_NAMESPACE))
-        OrzAudioCore.decodeToWav(raw, wav, song.fileFormat)
-        trimPcmCache(keep = wav)
-        wav
-    }
-
     private fun download(url: String, dest: File) {
         val tmp = File(dest.parentFile, "${dest.name}.part")
         val request = Request.Builder().url(url).build()
@@ -76,23 +58,5 @@ class MediaCache(context: Context) {
             tmp.copyTo(dest, overwrite = true)
             tmp.delete()
         }
-    }
-
-    /** WAV 很大(一首 ~15MB);给缓存设一个上限,按最后访问时间删旧的。 */
-    private fun trimPcmCache(keep: File) {
-        val dir = File(root, "pcm")
-        val files = dir.listFiles()?.filter { it.isFile }?.sortedBy { it.lastModified() } ?: return
-        var total = files.sumOf { it.length() }
-        if (total <= MAX_PCM_CACHE_BYTES) return
-        for (f in files) {
-            if (total <= MAX_PCM_CACHE_BYTES) break
-            if (f.absolutePath == keep.absolutePath) continue
-            val size = f.length()
-            if (f.delete()) total -= size
-        }
-    }
-
-    private companion object {
-        const val MAX_PCM_CACHE_BYTES = 300L * 1024L * 1024L
     }
 }

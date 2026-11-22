@@ -68,8 +68,9 @@
 └──────────────────────────────────────────────────────────────┘
 
 Platform Adapter(Media3 / AVFoundation / Web Audio)与 SDK 平级:
-它消费 SDK 产出的 PCM(Android 目标:`PcmStream` + `AudioTrack`;
-当前实现:`decodeToWav` 落盘后交给 Media3),或直接播放 directFile / serverDecode 的 URL。
+它消费 SDK 产出的 PCM(Android 已落地:`PcmStream` + `AudioTrack` 流式,
+整曲转 WAV 的 `decodeToWav` 在 App 内已无调用点),或直接播放 directFile /
+serverDecode 的 URL。
 流式改造进度见 [`../../Docs/backlog/android-pcm-streaming.md`](../../Docs/backlog/android-pcm-streaming.md)。
 ```
 
@@ -224,11 +225,11 @@ SDK/Android/
 
 ### 3.6 `CacheKey`(缓存 + 指纹)
 
-- raw:`raw/<songId>.<format>`
-- WAV:`pcm/<songId>-<decoderNamespace>.wav`(流式改造后不再使用,仅回退路径)
-- `decoderNamespace` 来自 `decoder-profile.json`(OrzAudioCore 版本 + libopenmpt 版本)。
-- 这是服务端把 `orz_build_info()` fingerprint 写进 PCM 缓存键的客户端等价物:
-  升级 SDK 后旧 WAV 自动失效。
+- 只有 raw:`raw/<songId>.<format>`
+- 旧的 WAV 键(`pcm/<songId>-<decoderNamespace>.wav`)与 `CacheKey.wav()` 已随 0.8.13
+  一起删除 —— 流式播放不再落 WAV,`MediaCache` 只有 `rawFor()`。
+- 服务端仍然把 `orz_build_info()` fingerprint 写进 PCM 缓存键(那是服务端的策略),
+  客户端侧对应关系随 WAV 路径一起消失了。
 
 ---
 
