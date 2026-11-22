@@ -172,6 +172,11 @@ class OrzPlaybackPlayer(
         positionMs: Long,
         seekCommand: Int
     ): ListenableFuture<*> {
+        if (seekCommand == Player.COMMAND_SEEK_BACK || seekCommand == Player.COMMAND_SEEK_FORWARD) {
+            // 兜底：即使有控制器硬发快退/快进，也不要动进度（0.8.12 起明确不支持）。
+            Log.i(SEEK_TAG, "ignored transport seek command=$seekCommand")
+            return Futures.immediateVoidFuture()
+        }
         if (isNative) {
             // 主线程只置位 + 通知界面（拖动时每个 move 都会进来）；
             // 真正的 pause/flush/解码器 seek 在 NativePcmPlayback 的专用线程上做。
@@ -338,8 +343,9 @@ class OrzPlaybackPlayer(
                 Player.COMMAND_SEEK_TO_DEFAULT_POSITION,
                 Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
                 Player.COMMAND_SEEK_TO_MEDIA_ITEM,
-                Player.COMMAND_SEEK_BACK,
-                Player.COMMAND_SEEK_FORWARD,
+                // 不提供 SEEK_BACK / SEEK_FORWARD：Pico 的十字键在媒体会话里会被映射成
+                // 「快退/快进」，射线指着进度条时按左右键就会悄悄改进度（真机反馈）。
+                // 需要 ±5s 用正在播放页的按钮（走 seekTo）。
                 Player.COMMAND_SET_VOLUME,
                 Player.COMMAND_GET_VOLUME,
                 Player.COMMAND_GET_CURRENT_MEDIA_ITEM,
