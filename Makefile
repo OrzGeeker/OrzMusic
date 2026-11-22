@@ -233,6 +233,7 @@ script-test:
 	bash Tests/AppTests/release-scripts-test.sh
 	bash Tests/AppTests/db-backup-test.sh
 	bash Tests/AppTests/release-smoke-test.sh
+	bash Tests/AppTests/android-release-test.sh
 
 .PHONY: docker-build
 docker-build:
