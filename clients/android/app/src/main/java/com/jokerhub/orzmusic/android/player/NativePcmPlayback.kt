@@ -1,5 +1,6 @@
 package com.jokerhub.orzmusic.android.player
 
+import android.util.Log
 import com.jokerhub.orzmusic.audiokit.OrzAudioCore
 import com.jokerhub.orzmusic.audiokit.PcmStream
 import java.io.File
@@ -35,6 +36,13 @@ class NativePcmPlayback(
 
     @Volatile
     private var stream: PcmStream? = null
+
+    /** 只保留最新的 seek 目标（`Long.MIN_VALUE` = 没有待处理请求）。 */
+    @Volatile
+    private var pendingSeekMs: Long = Long.MIN_VALUE
+
+    @Volatile
+    private var seekThread: Thread? = null
 
     /** 原始文件字节：不支持的格式要靠重开解码器快进。 */
     @Volatile
@@ -196,6 +204,41 @@ class NativePcmPlayback(
     }
 
     /**
+     * 异步 seek：立刻把位置想成目标值（界面跟手），真正的工作在专用线程上串行做，
+     * 期间新请求只覆盖旧的 —— 拖动时不会把主线程堵住。
+     */
+    fun requestSeek(positionMs: Long) {
+        if (released) return
+        val target = positionMs.coerceAtLeast(0L)
+        positionBaseMs = target
+        headBaseFrames = sink?.playedFrames ?: 0L
+        pendingSeekMs = target
+        ensureSeekThread()
+    }
+
+    private fun ensureSeekThread() {
+        if (seekThread != null) return
+        seekThread = Thread({
+            while (!released) {
+                val target = pendingSeekMs
+                if (target == Long.MIN_VALUE) {
+                    Thread.sleep(10)
+                    continue
+                }
+                pendingSeekMs = Long.MIN_VALUE
+                val ok = runCatching { seekTo(target) }.getOrDefault(false)
+                Log.i(
+                    SEEK_TAG,
+                    "asyncSeek target=$target applied=$ok skipRender=$lastSeekUsedSkip now=$positionMs"
+                )
+            }
+        }, "orz-native-seek").apply {
+            isDaemon = true
+            start()
+        }
+    }
+
+    /**
      * 跳到 [positionMs]。
      *
      * 两条腿：
@@ -229,8 +272,11 @@ class NativePcmPlayback(
 
         if (ok) {
             positionBaseMs = target
-            headBaseFrames = createdSink.playedFrames
+        } else {
+            // 没跳成：位置交回解码器真实值，否则界面会挂在一个不存在的位置上。
+            positionBaseMs = createdStream.positionMs
         }
+        headBaseFrames = createdSink.playedFrames
         if (wasPlaying) {
             playing = true
             createdSink.play()
@@ -301,6 +347,8 @@ class NativePcmPlayback(
         // 先停写线程，再关 sink，最后关 stream（PcmStream.close 内部会 cancel+join+destroy）。
         worker?.let { runCatching { it.join(1000) } }
         worker = null
+        seekThread?.let { runCatching { it.join(1000) } }
+        seekThread = null
         runCatching { sink?.close() }
         sink = null
         runCatching { stream?.close() }

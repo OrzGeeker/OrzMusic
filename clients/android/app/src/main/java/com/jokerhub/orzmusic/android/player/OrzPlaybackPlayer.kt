@@ -173,13 +173,11 @@ class OrzPlaybackPlayer(
         seekCommand: Int
     ): ListenableFuture<*> {
         if (isNative) {
-            val ok = native?.seekTo(positionMs) ?: false
+            // 主线程只置位 + 通知界面（拖动时每个 move 都会进来）；
+            // 真正的 pause/flush/解码器 seek 在 NativePcmPlayback 的专用线程上做。
             nativePositionMs = positionMs
-            Log.i(
-                SEEK_TAG,
-                "player.handleSeek native($positionMs) applied=$ok " +
-                    "skipRender=${native?.lastSeekUsedSkip} now=${native?.positionMs}"
-            )
+            native?.requestSeek(positionMs)
+            Log.i(SEEK_TAG, "player.handleSeek native($positionMs) queued")
         } else {
             exo.seekTo(positionMs)
             Log.i(SEEK_TAG, "player.handleSeek exo($positionMs)")

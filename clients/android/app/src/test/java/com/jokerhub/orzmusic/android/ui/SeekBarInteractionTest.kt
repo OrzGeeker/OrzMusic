@@ -6,7 +6,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
@@ -36,6 +39,7 @@ class SeekBarInteractionTest {
     val rule = createComposeRule()
 
     private var seeked: Float = -1f
+    private var seekCount = 0
     private var seekBy: Long = 0
 
     private fun content() {
@@ -43,7 +47,7 @@ class SeekBarInteractionTest {
             Box(Modifier.size(320.dp, 40.dp)) {
                 SeekBar(
                     fraction = 0.2f,
-                    onSeek = { seeked = it },
+                    onSeek = { seeked = it; seekCount++ },
                     onSeekBy = { seekBy = it },
                     modifier = Modifier
                         .size(320.dp, 40.dp)
@@ -66,6 +70,25 @@ class SeekBarInteractionTest {
 
         assertTrue("确认键没有触发 seek（seeked=$seeked, width=$width）", seeked >= 0f)
         assertEquals(0.75f, seeked, 0.02f)
+    }
+
+    /**
+     * 拖动必须只在**松手时** seek 一次：每个 move 都 seek 会堵住主线程，
+     * 头显里就是「一卡一卡」（0.8.5 的真机反馈）。
+     */
+    @Test
+    fun dragSeeksOnlyOnceOnRelease() {
+        content()
+        val width = barWidthPx()
+        rule.onNodeWithTag("seekbar").performTouchInput {
+            swipe(
+                start = Offset(width * 0.2f, height / 2f),
+                end = Offset(width * 0.8f, height / 2f),
+                durationMillis = 200
+            )
+        }
+        assertEquals("拖动过程中不该反复 seek", 1, seekCount)
+        assertEquals(0.8f, seeked, 0.06f)
     }
 
     @Test

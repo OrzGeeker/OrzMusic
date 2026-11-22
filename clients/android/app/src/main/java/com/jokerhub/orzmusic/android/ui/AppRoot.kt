@@ -1,5 +1,6 @@
 package com.jokerhub.orzmusic.android.ui
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -718,9 +719,13 @@ private fun PlayerDock(
         if (song != null) {
             SeekBar(
                 fraction = fraction,
-                onSeek = { value -> if (durationMs > 0) vm.seekTo((value * durationMs).toLong()) },
+                onSeek = { value ->
+                    Log.i("OrzSeek", "dock.onSeek fraction=$value duration=$durationMs")
+                    if (durationMs > 0) vm.seekTo((value * durationMs).toLong())
+                },
                 onSeekBy = vm::seekBy,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                tag = "dock"
             )
         }
 

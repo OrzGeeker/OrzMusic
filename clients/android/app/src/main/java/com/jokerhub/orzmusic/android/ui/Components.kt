@@ -944,7 +944,9 @@ fun SeekBar(
     fraction: Float,
     onSeek: (Float) -> Unit,
     onSeekBy: (Long) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** 只用于日志区分是哪个进度条（`dock` / `nowplaying`）。 */
+    tag: String = "seekbar"
 ) {
     val focus = remember { FocusRequester() }
     // 射线/鼠标的横向落点（0..1）。-1 表示这次没有任何指针悬停过，
@@ -953,10 +955,23 @@ fun SeekBar(
     // 控件在窗口里的位置：射线坐标是窗口坐标系，要换算成控件内部比例。
     var barLeft by remember { mutableFloatStateOf(0f) }
     var barWidth by remember { mutableFloatStateOf(0f) }
+    // 拖动/点击后的本地预览位置：先跟手画，等播放器真追上来再交回去。
+    var previewFraction by remember { mutableFloatStateOf(-1f) }
+    val shownFraction = if (previewFraction >= 0f) previewFraction else fraction
+    // 播放器位置追上来了（或 1.2s 都没追上）就把预览交回给真实位置。
+    LaunchedEffect(previewFraction, fraction) {
+        if (previewFraction < 0f) return@LaunchedEffect
+        if (kotlin.math.abs(fraction - previewFraction) < 0.02f) {
+            previewFraction = -1f
+        } else {
+            kotlinx.coroutines.delay(1_200)
+            previewFraction = -1f
+        }
+    }
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(32.dp)
+            .height(40.dp)
             .onGloballyPositioned { coords ->
                 barLeft = coords.positionInWindow().x
                 barWidth = coords.size.width.toFloat()
@@ -992,6 +1007,12 @@ fun SeekBar(
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
+                        if (event.type == PointerEventType.Press ||
+                            event.type == PointerEventType.Release
+                        ) {
+                            Log.i(SEEK_TAG, "pointer@$tag ${event.type}")
+                            continue
+                        }
                         if (event.type != PointerEventType.Move &&
                             event.type != PointerEventType.Enter
                         ) continue
@@ -1005,13 +1026,32 @@ fun SeekBar(
             }
             .pointerInput(Unit) {
                 detectTapGestures { offset ->
-                    onSeek((offset.x / size.width.toFloat()).coerceIn(0f, 1f))
+                    val f = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
+                    Log.i(SEEK_TAG, "tap@$tag fraction=$f")
+                    previewFraction = f
+                    onSeek(f)
                 }
             }
             .pointerInput(Unit) {
-                detectDragGestures { change, _ ->
-                    onSeek((change.position.x / size.width.toFloat()).coerceIn(0f, 1f))
-                }
+                // 拖动必须「本地预览 + 松手才 seek 一次」：每个 move 都 seek 会让
+                // 主线程被 pause/flush/解码器 seek 堵住，头显里就是一卡一卡。
+                detectDragGestures(
+                    onDragStart = { offset ->
+                        val f = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
+                        previewFraction = f
+                        Log.i(SEEK_TAG, "dragStart@$tag fraction=$f")
+                    },
+                    onDrag = { change, _ ->
+                        change.consume()
+                        previewFraction = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
+                    },
+                    onDragEnd = {
+                        val f = previewFraction
+                        Log.i(SEEK_TAG, "dragEnd@$tag fraction=$f")
+                        if (f >= 0f) onSeek(f)
+                    },
+                    onDragCancel = { previewFraction = -1f }
+                )
             },
         contentAlignment = Alignment.Center
     ) {
@@ -1020,7 +1060,7 @@ fun SeekBar(
             val y = size.height / 2f
             val radius = trackHeight / 2f
             val trackWidth = size.width
-            val progress = (trackWidth * fraction.coerceIn(0f, 1f))
+            val progress = (trackWidth * shownFraction.coerceIn(0f, 1f))
             drawRoundRect(
                 color = OrzColors.Line,
                 topLeft = Offset(0f, y - radius),

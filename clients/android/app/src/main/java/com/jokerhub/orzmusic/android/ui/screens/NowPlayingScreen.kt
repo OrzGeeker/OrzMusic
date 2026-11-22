@@ -343,6 +343,7 @@ private fun NowPlayingDetails(
                 fraction = fraction,
                 onSeek = { value -> if (durationMs > 0) onSeek((value * durationMs).toLong()) },
                 onSeekBy = onSeekBy,
+                tag = "nowplaying",
                 modifier = Modifier.fillMaxWidth()
             )
             Row(
