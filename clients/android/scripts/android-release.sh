@@ -236,7 +236,9 @@ lines = ['## [%s](https://github.com/%s/compare/%s...%s) - %s' % (ver, slug, las
 for key, label in GROUPS:
     if bucket[key]:
         lines += ['### %s' % label, ''] + bucket[key] + ['']
-entry = '\n'.join(lines)
+# 条目末尾必须留在两个换行:插入点是 old 里 '## [' 前那个 '\n',
+# 只有一个换行时新条目的最后一行会和上一个版本标题贴在一起(0.8.13 踩过)。
+entry = '\n'.join(lines) + '\n'
 
 try:
     old = open(cle, encoding='utf-8').read()
