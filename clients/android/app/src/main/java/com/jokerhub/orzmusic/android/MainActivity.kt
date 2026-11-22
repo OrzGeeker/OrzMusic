@@ -2,6 +2,7 @@ package com.jokerhub.orzmusic.android
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.annotation.SuppressLint
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
@@ -225,6 +226,10 @@ class MainActivity : ComponentActivity() {
         }, 80L)
     }
 
+    // `super.dispatchKeyEvent` 被 lint 标记 RestrictedApi（只有 androidx 内部能用）。
+    // 这里必须用它：合成的 DPAD_CENTER 要按正常的 activity 按键分发走下去，
+    // `window.decorView.dispatchKeyEvent` 会绕过 IME/焦点链路，实测无效。
+    @SuppressLint("RestrictedApi")
     private fun sendTapKey(keyCode: Int) {
         val now = SystemClock.uptimeMillis()
         super.dispatchKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0))
