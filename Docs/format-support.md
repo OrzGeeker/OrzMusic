@@ -8,7 +8,7 @@
 - **OrzMusic 应用层支持格式：27 种**，由 `Sources/OrzAudioKit/AudioFormat.swift` 决定。
 - **当前本地音乐库：5533 首**，来自 `/api/songs/formats` 的实时统计；这个数字随扫描源和数据库内容变化，不是固定能力上限。
 - **当前本地库中有曲目的格式：25 种**；`flac`、`m4a`、`aac` 已支持但当前库内数量为 0。
-- **OrzAudioCore SDK v1.3.0 是外置解码 SDK**，OrzMusic 不再直接编译内嵌 decoder 源码。
+- **OrzAudioCore SDK v1.3.1 是外置解码 SDK**，OrzMusic 不再直接编译内嵌 decoder 源码。
 - **SDK/Web manifest 目前包含 `thx`**，但 OrzMusic 后端 `AudioFormat` 尚未声明 `thx`，因此当前应用层扫描、上传、API 分类和播放策略不把 `thx` 视为已支持格式。
 
 ## 当前库内格式数量
@@ -65,7 +65,7 @@ OrzMusic 目前有三条播放路径：
 ## SDK 与应用层边界
 
 ```
-OrzAudioCore SDK v1.3.0（外置 SDK，校验锁定）
+OrzAudioCore SDK v1.3.1（外置 SDK，校验锁定）
   ├── Native library（服务端）
   └── WASM bundle（浏览器）
               ↓

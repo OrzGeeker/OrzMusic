@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.0.13] — 2026-11-22
+
+### 变更
+- 解码核心升级到 **OrzAudioCore 1.3.1**（`audio-core-sdk.lock.json`，服务端/Web/Android
+  五个资产按新校验和重新锁定）。上游把 adplug 的打包路径从「先写 `/tmp/adplug_N.<ext>`
+  再用 `CProvider_Filesystem` 读回」改成直接实现 `CFileProvider` 读内存，因此
+  `amd`、`d00`、`hsc`、`rad` 在没有 `/tmp` 的环境不再 `status=-4`（格式不支持/数据损坏）。
+- Web WASM 资产重新安装并提交（`Resources/Public/audio/orz_audio{,_builtin}.wasm`），
+  `orz_build_info()` 变为 `orzcore-1.3.1-m1`。已有的 PCM/WAV 缓存键随之失效、按需重建；
+  格式集合不变（仍是 23 个，服务端/Web 侧 27 种应用层格式的映射不动）。
+- `Docs/format-support.md` 与 `AGENTS.md` 的 SDK 版本口径同步到 1.3.1。
+
+### 修复
+- `docker-compose.yml` / `docker-compose.production.yml` 把宿主 `./data` 绑到容器的
+  `/app/data`：`serverDecode` 命中统计（`decode-hits.json`）不再随容器重建/发版升级清零，
+  `make warm-decode-cache` 的 `MIN_HITS` 预热策略不会再退化成「没有数据」
+  （`DECODE_HIT_STATS_DIR` 可覆盖）。
+
 ## [0.0.12] — 2026-11-21
 
 ### 新增
