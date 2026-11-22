@@ -5,6 +5,17 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [0.8.7](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.8.6...android-v0.8.7) - 2026-11-22
+
+拖动已经顺了（0.8.6）。本轮处理「左右键调整进度不工作」：左右键只在进度条
+**有焦点**时生效（否则会把 Compose 的方向键导航抢掉），所以先把它变成可观测的
+——`OrzSeek: focus@dock|nowplaying` / `key@… <key>` / `seekBy@… ±5000`，
+并且进度条获得焦点时轨道 4→6dp、滑块 6→8dp，头显里一眼能看出来。
+
+### 修复
+
+- fix(android): 进度条左右键可诊断 + 焦点可见 ([f297911](https://github.com/OrzGeeker/OrzMusic/commit/f297911))
+
 ## [0.8.6](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.8.5...android-v0.8.6) - 2026-11-22
 
 0.8.5 之后拖动进度条能 seek 了，但**拖的时候一卡一卡**：每个 pointer-move 都
