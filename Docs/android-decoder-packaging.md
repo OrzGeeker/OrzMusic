@@ -210,6 +210,9 @@ cd clients/android && ./gradlew assembleDebug
       上 4 条全绿）：`.so` 能加载、`orz_build_info()` = `orzcore-1.3.0-m1`、
       运行时格式集 == 清单 23 项、手搓最小 MOD 能真跑出 PCM。
       跑法：`cd clients/android && ./gradlew :app:connectedDebugAndroidTest`
+- [x] 上游 v1.3.1（修 adplug 在 Android 上没有 `/tmp`）已随 0.8.11 落地：两份 `liborzaudio.so`
+      用 1.3.1 资产重建，`orz_build_info()` = `orzcore-1.3.1-m1`，设备端同一条
+      `buildInfoMatchesLockedSdkVersion` 用例的期望值随 `decoder-profile.json` 一起走到 1.3.1
 - [x] Media3 桥：`OrzPlaybackPlayer`（`SimpleBasePlayer`）把 `PcmStream` 接进
       `PlaybackService`，通知栏/锁屏/耳机线控行为不变 ——
       见 [`backlog/android-pcm-streaming.md`](backlog/android-pcm-streaming.md)
