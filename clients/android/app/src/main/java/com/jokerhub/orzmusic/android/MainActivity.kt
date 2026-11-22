@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
+import android.util.Log
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -116,6 +117,17 @@ class MainActivity : ComponentActivity() {
             return true
         }
         when (event.keyCode) {
+            // 射线指着进度条时，左右键直接 ±5s（不依赖 Compose 焦点，见 SeekBarZones）。
+            KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                if (event.action == KeyEvent.ACTION_DOWN && RayPointer.valid) {
+                    val delta = if (event.keyCode == KeyEvent.KEYCODE_DPAD_LEFT) -5_000L else 5_000L
+                    if (SeekBarZones.seekByAt(RayPointer.x, RayPointer.y, delta)) {
+                        Log.i("OrzSeek", "ray key seek $delta at (${RayPointer.x},${RayPointer.y})")
+                        return true
+                    }
+                }
+                return super.dispatchKeyEvent(event)
+            }
             // Pico 扳机有时就是 ENTER（source 带 GAMEPAD）；只在这个来源下映射，
             // 否则会抢走系统输入法/外接键盘的 Enter 键。
             KeyEvent.KEYCODE_ENTER,

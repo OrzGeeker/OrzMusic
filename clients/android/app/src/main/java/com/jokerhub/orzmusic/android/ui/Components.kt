@@ -34,6 +34,9 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
+import com.jokerhub.orzmusic.android.SeekBarZones
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableFloatStateOf
@@ -957,6 +960,13 @@ fun SeekBar(
     var barWidth by remember { mutableFloatStateOf(0f) }
     // 拖动/点击后的本地预览位置：先跟手画，等播放器真追上来再交回去。
     var prefersFocus by remember { mutableStateOf(false) }
+    // 把命中区注册给 Activity：射线指着进度条时左右键就能 ±5s（不依赖 Compose 焦点）。
+    val zone = remember(tag) { SeekBarZones.Zone(tag) }
+    SideEffect { zone.onSeekBy = onSeekBy }
+    DisposableEffect(zone) {
+        SeekBarZones.register(zone)
+        onDispose { SeekBarZones.unregister(zone) }
+    }
     var previewFraction by remember { mutableFloatStateOf(-1f) }
     val shownFraction = if (previewFraction >= 0f) previewFraction else fraction
     // 播放器位置追上来了（或 1.2s 都没追上）就把预览交回给真实位置。
@@ -974,8 +984,17 @@ fun SeekBar(
             .fillMaxWidth()
             .height(40.dp)
             .onGloballyPositioned { coords ->
-                barLeft = coords.positionInWindow().x
-                barWidth = coords.size.width.toFloat()
+                val b = coords.positionInWindow()
+                val w = coords.size.width.toFloat()
+                val h = coords.size.height.toFloat()
+                barLeft = b.x
+                barWidth = w
+                zone.bounds = android.graphics.Rect(
+                    b.x.toInt(),
+                    b.y.toInt(),
+                    (b.x + w).toInt(),
+                    (b.y + h).toInt()
+                )
             }
             .focusOnHover(focus)
             .onFocusChanged { st ->
