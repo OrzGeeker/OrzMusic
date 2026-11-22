@@ -18,7 +18,7 @@ native/
 ├── cpp/
 │   ├── CMakeLists.txt     # 编译 liborzaudio.so
 │   └── orz_jni.c          # JNI:解码成 16-bit PCM WAV
-├── orzaudio/              # OrzAudioCore 1.3.0 源码(Apache-2.0)
+├── orzaudio/              # OrzAudioCore lite 源码(Apache-2.0;13 格式回退路径,未随 1.3.1 更新)
 │   ├── LICENSE
 │   └── Sources/OrzAudioKitCXX/
 │       ├── dispatch/      # C ABI + 解码器注册表
@@ -85,7 +85,7 @@ bash clients/android/audio-kit/scripts/build-android.sh --clean      # 删 audio
 
 | 项 | 值 |
 |---|---|
-| OrzAudioCore | 1.3.0(源码 vendored) |
+| OrzAudioCore | 1.3.1(上游资产构建;vendored lite 源码仍为 1.3.0 口径) |
 | libopenmpt | 0.8.0 |
 | NDK | 27.0.12077973 |
 | minSdk / `ANDROID_PLATFORM` | 29 |

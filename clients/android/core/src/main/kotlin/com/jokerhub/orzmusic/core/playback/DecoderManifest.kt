@@ -18,7 +18,7 @@ data class DecoderFormat(
 object DecoderManifest : DecoderManifestSource {
 
     const val PROFILE = "android-full"
-    const val SDK_VERSION = "OrzAudioCore 1.3.0"
+    const val SDK_VERSION = "OrzAudioCore 1.3.1"
     const val LIBOPENMPT_VERSION = "0.8.0"
 
     /**
