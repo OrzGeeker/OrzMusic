@@ -21,19 +21,24 @@ function builtinModule() {
 
 test('builtin WASM is pinned to the immutable OrzAudioCore release', async () => {
     const lock = JSON.parse(fs.readFileSync(path.join(root, 'audio-core-sdk.lock.json'), 'utf8'));
-    // 不在这里写死版本号:真正的约束是「lock == 打包进来的 WASM 的 build info」,
-    // 由下面两条断言保证;写死只会让每次升 SDK 都要改测试。
-    assert.match(lock.nativeAssetMacosArm64, /macos-arm64\.tar\.gz$/);
-    assert.match(lock.nativeAssetSha256MacosArm64, /^[a-f0-9]{64}$/);
-    assert.match(lock.serverAssetX86_64, /linux-x86_64\.tar\.gz$/);
-    assert.match(lock.serverAssetSha256X86_64, /^[a-f0-9]{64}$/);
-    assert.match(lock.serverAssetArm64, /linux-arm64\.tar\.gz$/);
-    assert.match(lock.serverAssetSha256Arm64, /^[a-f0-9]{64}$/);
-    assert.match(lock.webAssetSha256, /^[0-9a-f]{64}$/);
+    assert.equal(lock.schemaVersion, 1);
+    const asset = (platform, profile) => {
+        const found = lock.assets.find(item => item.platform === platform && item.profile === profile);
+        assert.ok(found, `lock 缺少 ${platform}/${profile} 资产`);
+        assert.match(found.sha256, /^[0-9a-f]{64}$/);
+        return found;
+    };
+    // 不在这里写死版本号:真正的约束是「lock == 打包进来的 WASM 的 build info」。
+    asset('macos-arm64', 'full');
+    asset('linux-x86_64', 'server');
+    asset('linux-arm64', 'server');
+    asset('web', 'full');
     const wasm = await builtinModule();
     const buildInfo = JSON.parse(wasm.UTF8ToString(wasm._orz_build_info()));
     assert.equal(buildInfo.version, lock.version);
-    assert.equal(buildInfo.fingerprint, `orzcore-${lock.version}-m1`);
+    assert.equal(buildInfo.profile, 'builtin-lite');
+    assert.equal(buildInfo.cacheNamespace, lock.profiles['builtin-lite'].cacheNamespace);
+    assert.equal(buildInfo.fingerprint, lock.profiles['builtin-lite'].fingerprint);
 });
 
 function createV1(wasm, tune, formatName) {

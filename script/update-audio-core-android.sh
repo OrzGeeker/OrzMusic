@@ -17,10 +17,8 @@ set -euo pipefail
 # 装完再跑 clients/android/audio-kit/scripts/build-android.sh,
 # `native/cpp/CMakeLists.txt` 会自动走 ORZ_PREBUILT_CORE 分支(只编 JNI 胶水)。
 #
-# 前置:audio-core-sdk.lock.json 里要有 androidAssets(资产发布后再写进去):
-#
-#   "androidAssets": "OrzAudioCore-1.3.0-android-full.tar.gz",
-#   "androidAssetsSha256": "…"
+# 前置:audio-core-sdk.lock.json(schema v1)的 assets[] 里要有
+#   {platform: "android", profile: "full"} 条目。
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOCK="$ROOT/audio-core-sdk.lock.json"
@@ -30,6 +28,9 @@ read_json_string() {
   sed -n "s/.*\"$2\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" "$1" | head -n 1
 }
 read_lock() { read_json_string "$LOCK" "$1"; }
+read_lock_asset() {
+  node -p "const a = require('$LOCK').assets.find(a => a.platform === '$1' && a.profile === '$2' && a.name.endsWith('$3')); a ? a.$4 : ''"
+}
 
 sha256_of() {
   if command -v sha256sum >/dev/null 2>&1; then
@@ -52,19 +53,18 @@ done
 repo="$(read_lock repository)"
 tag="$(read_lock tag)"
 version="$(read_lock version)"
-asset="$(read_lock androidAssets)"
-expected="$(read_lock androidAssetsSha256)"
+asset="$(read_lock_asset android full .tar.gz name)"
+expected="$(read_lock_asset android full .tar.gz sha256)"
 
 if [[ -z "$LOCAL_ARCHIVE" && ( -z "$asset" || -z "$expected" ) ]]; then
   cat >&2 <<EOF
-!! audio-core-sdk.lock.json 还没声明 Android 资产。
+!! audio-core-sdk.lock.json 里没有 Android full 资产。
 
-OrzAudioCore 发布带 android job 的 tag 后,在 lock 里补:
+请在 schema-v1 lock 的 assets[] 里加入:
+  {"name": "OrzAudioCore-$version-android-full.tar.gz",
+   "platform": "android", "profile": "full", "sha256": "<release .sha256>"}
 
-  "androidAssets": "$(read_lock webAsset | sed 's/orzmusic-audio-core/web-core/;s/\.tgz//')-android-full.tar.gz",
-  "androidAssetsSha256": "<release 里的 .sha256>",
-
-然后重跑本脚本。当前 lock:
+当前 lock:
   version = $version
   tag     = $tag
 EOF
@@ -82,7 +82,7 @@ if [[ -n "$LOCAL_ARCHIVE" ]]; then
   echo "使用本地资产:$LOCAL_ARCHIVE"
   echo "  sha256 $actual"
   if [[ -n "$expected" && "$actual" != "$expected" ]]; then
-    echo "警告:本地资产的 sha256 与 lock 里的 androidAssetsSha256 不一致" >&2
+    echo "警告:本地资产的 sha256 与 lock 里的 android full 资产不一致" >&2
   fi
 else
   echo "下载 $repo/releases/download/$tag/$asset"

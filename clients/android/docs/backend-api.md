@@ -25,7 +25,7 @@
 
 | 方案 | 状态 |
 |---|---|
-| **A. NDK 集成 OrzAudioCore** | ✅ 已实现。`liborzaudio.so` 内含 OrzAudioCore 1.3.1 + libopenmpt 0.8.0,解码路径正从「整曲解成 16-bit PCM WAV」改为 `PcmStream` + `AudioTrack` 流式（见 [`../../Docs/backlog/android-pcm-streaming.md`](../../Docs/backlog/android-pcm-streaming.md)） |
+| **A. NDK 集成 OrzAudioCore** | ✅ 已实现。`liborzaudio.so` 内含 OrzAudioCore 1.4.0 + libopenmpt 0.8.0,解码路径正从「整曲解成 16-bit PCM WAV」改为 `PcmStream` + `AudioTrack` 流式（见 [`../../Docs/backlog/android-pcm-streaming.md`](../../Docs/backlog/android-pcm-streaming.md)） |
 | B. 后端强制服务端解码(`?decode=server`) | 备选,未采用 |
 
 已编入的格式:
@@ -104,7 +104,7 @@ cd clients/android
 - Compose + `androidx.tv:tv-material:1.0.0`(TV 焦点与触屏点击共用)
 - Retrofit 2.11 + OkHttp 4.12 + kotlinx.serialization 1.7.3
 - `androidx.media3:media3-exoplayer:1.5.0`
-- NDK 27 交叉编译的 `liborzaudio.so`(OrzAudioCore 1.3.1 + libopenmpt 0.8.0)
+- NDK 27 交叉编译的 `liborzaudio.so`(OrzAudioCore 1.4.0 + libopenmpt 0.8.0)
 - 没有 Hilt / Room / Coil —— 当前复杂度不需要
 
 ### 自适应规则

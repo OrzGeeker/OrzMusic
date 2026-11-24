@@ -205,7 +205,7 @@ SDK/Android/
 ```
 
 发布坐标:`com.orzgeeker:audio-core-android:<sdkVersion>`
-(当前 1.3.1;Android 绑定单独发版时用 `1.3.1-android.N`)。
+(当前 1.4.0;Android 绑定单独发版时用 `1.4.0-android.N`)。
 
 **当前 `clients/android/audio-kit` 已经具备正式 SDK 的核心形状**:
 
@@ -267,7 +267,7 @@ clients/android/
 :app → :audio-kit → OrzAudioCore C ABI → libopenmpt
 ```
 
-`:audio-kit` 可以发布成 `com.orzgeeker:audio-core-android:1.3.1`;
+`:audio-kit` 可以发布成 `com.orzgeeker:audio-core-android:1.4.0`;
 之后 Android client 用 Maven 坐标 + `audio-core-sdk.lock.json` 锁定,不再用 project 依赖。
 
 `:core` 目前只依赖 `kotlinx.serialization-json`。它可以在下一步平移到
@@ -359,7 +359,7 @@ OrzMusic/
 - **Server**:`orz_build_info()` 的 fingerprint 写进 PCM WAV 缓存键。
 - **Android**:`decoder-profile.json` 的 `cacheNamespace` 写进 WAV 文件名。
 - **Apple/Desktop/Web**:同一规则;升级 SDK 后旧缓存自动失效。
-- 版本锁定:OrzAudioCore 1.3.1 / libopenmpt 0.8.0 / NDK 27(Android)。
+- 版本锁定:OrzAudioCore 1.4.0 / libopenmpt 0.8.0 / NDK 27(Android)。
 - 升级步骤:改 `decoder-profile.json` + `audio-kit/native/` 版本 → 重跑
   `clients/android/scripts/gen-core-manifest.py` → 重编 `.so` → 旧缓存自然失效。
 

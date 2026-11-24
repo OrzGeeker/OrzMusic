@@ -7,7 +7,7 @@
 | C/C++ | `libOrzAudioCore.a/.so` + headers + CMake/pkg-config | CMake `find_package` | C ABI `orz_*` |
 | Swift | `OrzAudioCore.xcframework` / SwiftPM | SPM | `AudioDecoder` |
 | Web | `@orzmusic/audio-core` + WASM | npm | TS API |
-| **Android** | **`audio-core-android-1.3.1.aar`** | **Maven / Gradle** | **Kotlin `OrzAudioCore` / `AudioDecoder`** |
+| **Android** | **`audio-core-android-1.4.0.aar`** | **Maven / Gradle** | **Kotlin `OrzAudioCore` / `AudioDecoder`** |
 
 目标是把它从「OrzMusic 内部的 `:audio-kit` 模块」提升为 **OrzAudioCore 仓库里的 `SDK/Android/`**,
 由 SDK 统一负责 JNI + WAV + manifest + 指纹;客户端只依赖 AAR。
@@ -17,7 +17,7 @@
 ## 当前状态
 
 - 模块:`clients/android/audio-kit`(Android Library)
-- 坐标:`com.orzgeeker:audio-core-android:1.3.1`
+- 坐标:`com.orzgeeker:audio-core-android:1.4.0`
 - 产物:AAR + sources jar + POM(含 checksums)
 - JNI:C ABI 1.0;`.so` 在 `src/main/jniLibs/{arm64-v8a,armeabi-v7a}/liborzaudio.so`
 - 许可证:**GPL-3.0-or-later**(静态链接 GPL 解码器;见
@@ -52,10 +52,10 @@ cd clients/android
 
 # 发布到本地 Maven 仓库(默认 build/repo)
 ./gradlew :audio-kit:publishReleasePublicationToLocalRepository
-# → audio-kit/build/repo/com/orzgeeker/audio-core-android/1.3.1/
-#     audio-core-android-1.3.1.aar
-#     audio-core-android-1.3.1-sources.jar
-#     audio-core-android-1.3.1.pom
+# → audio-kit/build/repo/com/orzgeeker/audio-core-android/1.4.0/
+#     audio-core-android-1.4.0.aar
+#     audio-core-android-1.4.0-sources.jar
+#     audio-core-android-1.4.0.pom
 #     .module + sha256/sha512
 
 # 发布到 ~/.m2(本机其它工程可直接用)
@@ -70,7 +70,7 @@ repositories {
 }
 
 dependencies {
-    implementation("com.orzgeeker:audio-core-android:1.3.1")
+    implementation("com.orzgeeker:audio-core-android:1.4.0")
 }
 ```
 
@@ -117,8 +117,8 @@ OrzAudioCore/
 - `decoder-manifest.json` 是格式的单一事实来源;Android 生成
   `DecoderManifest.generated.kt`(和 Swift 的 `DecoderManifest.generated.swift`、
   Web 的 `decoder-manifest.generated.js` 同源)。
-- AAR 版本 = `sdkVersion`(当前 1.3.1);如果 Android 绑定单独发版,用
-  `1.3.1-android.N`,但解码指纹仍取 `orz_build_info()`。
+- AAR 版本 = `sdkVersion`(当前 1.4.0);如果 Android 绑定单独发版,用
+  `1.4.0-android.N`,但解码指纹仍取 `orz_build_info()`。
 - WAV/缓存键里必须带 `cacheFingerprint`(Swift 已经这样做),升级 SDK 后旧缓存失效。
 
 ## 与 C/Swift/Web 的差异
@@ -155,17 +155,16 @@ OrzAudioCore/
 OrzAudioCore **v1.3.0** 起才有 Android 产物,资产里是**自包含静态库**:
 
 ```
-OrzAudioCore v1.3.1 的 Release 资产:
-  OrzAudioCore-1.3.1-android-full.tar.gz   ← arm64-v8a / armeabi-v7a / x86_64
-  OrzAudioCore-1.3.1-builtin-lite.tar.gz
-  OrzAudioCore-1.3.1-linux-{x86_64,arm64}.tar.gz
-  OrzAudioCore-1.3.1-macos-arm64.tar.gz
-  OrzAudioCore.xcframework.zip
-  orzmusic-audio-core-1.3.1.tgz          ← Web/WASM
+OrzAudioCore v1.4.0 的 Release 资产:
+  OrzAudioCore-1.4.0-android-full.tar.gz          ← arm64-v8a / armeabi-v7a / x86_64
+  OrzAudioCore-1.4.0-{linux-x86_64,linux-arm64}-server.tar.gz
+  OrzAudioCore-1.4.0-macos-arm64-full.tar.gz
+  OrzAudioCore-1.4.0-apple-full.xcframework.zip
+  OrzAudioCore-1.4.0-web-full.tgz                 ← Web/WASM
 ```
 
 所以 `.so` 的**来源**已经是可锁定、可校验的了(仓库根 `audio-core-sdk.lock.json`
-的 `androidAssetsSha256`):
+的 `assets[]` 里 `android/full` 条目的 `sha256`):
 
 ```bash
 make sdk-android                                   # 下载 + 校验 + 解到 native/.sdk(已 gitignore)
@@ -181,6 +180,6 @@ bash clients/android/audio-kit/scripts/build-android.sh   # 只编 JNI 胶水,�
 - 判定「本机究竟能解哪些格式」不看 `.so` 从哪来,只看运行时
   `orz_get_format_count()` / `orz_get_format_info()`。
 
-依赖版本以 `audio-core-sdk.lock.json` 为准(当前 OrzAudioCore 1.3.1 / libopenmpt 0.8.0 /
-NDK 27)。升级流程:`lock` 改版本与 sha256 → `make sdk-android` → `build-android.sh` →
+依赖版本以 `audio-core-sdk.lock.json` 为准(当前 OrzAudioCore 1.4.0 / libopenmpt 0.8.0 /
+NDK 27)。升级流程:重新生成 schema-v1 lock → `make sdk-android` → `build-android.sh` →
 确认 `OrzAudioCore.supportedFormats` 仍是 23 项。

@@ -26,7 +26,7 @@ GPLv3 要求分发二进制时提供**完整对应源码**，包括能重建同�
 
 | 组件 | 用途（格式） | 版本 | 许可证 | 源码 | 本仓库副本 |
 |---|---|---|---|---|---|
-| OrzAudioCore | C ABI、解码器注册表；builtin 解码器 `ym6`(`ym`) / `midi`(`mid`) / `soundmon`(`bp`) | 1.3.1 | Apache-2.0 | <https://github.com/OrzGeeker/OrzAudioCore> | `audio-kit/native/orzaudio/`（含 `LICENSE`） |
+| OrzAudioCore | C ABI、解码器注册表；builtin 解码器 `ym6`(`ym`) / `midi`(`mid`) / `soundmon`(`bp`) | 1.4.0 | Apache-2.0（核心源码；full 资产整体 GPL-3.0-or-later） | <https://github.com/OrzGeeker/OrzAudioCore> | `audio-kit/native/orzaudio/`（含 `LICENSE`） |
 | libopenmpt | `xm` `mod` `it` `s3m` `mo3` `mtm` `fc13` `fc14` | 0.8.0 | BSD-3-Clause | <https://lib.openmpt.org/> | `audio-kit/native/third_party/libopenmpt/` |
 | lhasa | YM6 文件的 LHA 解压 | 0.4.x | ISC | <https://github.com/fragglet/lhasa> | `audio-kit/native/orzaudio/Sources/OrzAudioKitCXX/ym6/lhasa/COPYING.md` |
 | Android NDK / libc++ | `c++_static` | NDK 27.0.12077973 | Apache-2.0 WITH LLVM-exception | — | Android NDK 自带 NOTICE |

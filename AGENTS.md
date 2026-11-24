@@ -4,7 +4,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 ## 解码能力
 
-OrzAudioCore v1.3.1 作为外置 SDK 消费。解码逻辑封装在 `OrzAudioCoreSDK`（C system library），
+OrzAudioCore v1.4.0 作为外置 SDK 消费。解码逻辑封装在 `OrzAudioCoreSDK`（C system library），
 通过稳定 ABI v1 暴露。同一份 SDK 编译为 WASM（浏览器端）和原生库（服务端），零 brew/apt 依赖。
 
 ## Build & Test
@@ -85,7 +85,7 @@ Subagents 上下文隔离；委派任务时要明确目标、相关文件和期�
 App (Vapor) → OrzAudioKit (Swift) → OrzAudioCoreSDK (C system library)
 ```
 
-- **OrzAudioCoreSDK** — 已发布的 OrzAudioCore v1.3.1 system library target。包含所有 C 解码器（openmpt、gme、sidplayfp、adplug、ym6、midi、sc68、asap、ahx2play、v2m、bp）。
+- **OrzAudioCoreSDK** — 已发布的 OrzAudioCore v1.4.0 system library target。包含所有 C 解码器（openmpt、gme、sidplayfp、adplug、ym6、midi、sc68、asap、ahx2play、v2m、bp）。
   通过 `audio-core-sdk.lock.json` 锁定版本和校验和，由 CI 自动下载。
 - **OrzAudioKit** —纯 Swift target。封装 `OrzAudioCoreSDK` 的稳定 ABI，对不支持格式 fallback 到 ffmpeg CLI。
 - **App** — Vapor web 服务器。包含路由、模型、迁移、CAS 存储、扫描器。

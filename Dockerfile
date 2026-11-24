@@ -39,7 +39,7 @@ ENTRYPOINT ["/usr/local/bin/OrzAudioCoreSmoke"]
 
 FROM build-base AS build
 
-# Build the service against the immutable OrzAudioCore v1.2.4 ABI-v1 SDK.
+# Build the service against the immutable OrzAudioCore v1.4.0 ABI-v1 SDK.
 RUN swift build -c release --product OrzMusicService
 
 # Switch to the staging area
