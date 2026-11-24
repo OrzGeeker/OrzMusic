@@ -18,7 +18,7 @@ data class DecoderFormat(
 object DecoderManifest : DecoderManifestSource {
 
     const val PROFILE = "android-full"
-    const val SDK_VERSION = "OrzAudioCore 1.3.1"
+    const val SDK_VERSION = "OrzAudioCore 1.4.0"
     const val LIBOPENMPT_VERSION = "0.8.0"
 
     /**
@@ -26,7 +26,7 @@ object DecoderManifest : DecoderManifestSource {
      * 升级 OrzAudioCore / libopenmpt 后,旧 WAV 自动失效 ——
      * 与服务端把 `orz_build_info()` fingerprint 写进 PCM 缓存键是同一口径。
      */
-    const val CACHE_NAMESPACE = "orzaudio-1.3.1-full"
+    const val CACHE_NAMESPACE = "orzaudio-1.4.0-full-a107c62bbe34"
 
     override val formats: List<DecoderFormat> = listOf(
         DecoderFormat("xm", "XM", "modules"),

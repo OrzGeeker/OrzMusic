@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+### 变更
+- 解码核心升级到 **OrzAudioCore 1.4.0**，`audio-core-sdk.lock.json` 迁移到 schema v1
+  （`assets[]` 按 platform/profile 锁定，`profiles.full.cacheNamespace` =
+  `orzaudio-1.4.0-full-a107c62bbe34`）。
+- 服务端/Web WASM 资产重新安装并提交；`orz_build_info()` 版本变为 `1.4.0`，
+  profile 与 cacheNamespace 现在由 SDK 明确返回，旧 PCM/WAV 缓存按需重建。
+- Android 两份 `liborzaudio.so` 用 v1.4.0 `android-full` 资产重建，
+  `DecoderManifest.generated.kt` / `DecoderManifest.kt` 的 SDK 版本与缓存命名空间同步；
+  设备端指纹断言改为直接对齐生成的 `CACHE_NAMESPACE`。
+- 格式集合不变：服务端/Web/Android 仍是 23 个解码格式，应用层仍是 27 种格式。
+
 ## [0.0.13] — 2026-11-22
 
 ### 变更

@@ -5,6 +5,15 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [Unreleased]
+
+### 变更
+
+- 解码核心升级到 **OrzAudioCore 1.4.0**：两份 `liborzaudio.so` 用 `android-full`
+  资产重建，`orz_build_info()` 变为 `orzaudio-1.4.0-full-a107c62bbe34`。
+  `decoder-profile.json` / 生成的 manifest 同步版本与 `CACHE_NAMESPACE`，
+  设备端指纹断言改为直接对齐生成值。格式集合不变（23 个）。
+
 ## [0.8.13](https://github.com/OrzGeeker/OrzMusic/compare/android-v0.8.12...android-v0.8.13) - 2026-11-22
 
 ### 修复

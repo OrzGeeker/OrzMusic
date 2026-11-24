@@ -21,7 +21,7 @@
 |---|---|---|
 | 打包形态 | **单模块、单个 `liborzaudio.so`**，不做 AAR 拆分、不做插件 dlopen、不做独立进程 | 工程成本最低（约 2 人日 vs 5~25 人日），且 `sc68`/`sid` 是模拟器实现，进程隔离的收益不足以抵消复杂度 |
 | 许可证 | `clients/android/` 整体 **GPL-3.0-or-later**；`audio-core-android` AAR 的 POM 同样声明 GPL-3.0-or-later | 静态链接 GPL 解码器后整体是 GPLv3 作品。Apache-2.0 与 GPLv2 不兼容，只能升 v3 |
-| profile | `android-full`（23 格式），`cacheNamespace = orzaudio-1.3.1-full` | 与 server/WASM 同源 |
+| profile | `android-full`（23 格式），`cacheNamespace = orzaudio-1.4.0-full-a107c62bbe34` | 与 server/WASM 同源 |
 | 能力判定 | **运行时探测为准**：`orz_get_format_count()` / `orz_get_format_info()` ∩ 生成的清单 | 清单先行、二进制后到也不会播错；漏编 decoder 时自动降级 |
 | 播放形态 | 流式（`PcmStream` + `AudioTrack`），不再整曲转 WAV | 见 [`backlog/android-pcm-streaming.md`](backlog/android-pcm-streaming.md) |
 
@@ -193,6 +193,23 @@ cd clients/android && ./gradlew assembleDebug
 > 直接 push）；新加的 `script/*.sh` 在 NTFS 上会丢 exec 位，提交时要
 > `git update-index --chmod=+x`，否则 CI 报 `Permission denied (exit 126)`。
 
+## 2026-11-24 升级到 v1.4.0
+
+OrzAudioCore v1.4.0 统一了各平台制品命名和 schema-v1 lock。当前 Android 资产：
+
+```
+OrzAudioCore-1.4.0-android-full.tar.gz   sha256 942ea2ac13d5…
+```
+
+两份 `liborzaudio.so` 已用该资产重建，运行时 `orz_build_info()` 为：
+
+```json
+{"version":"1.4.0","profile":"full","fingerprint":"orzaudio-1.4.0-full-a107c62bbe34"}
+```
+
+`decoder-profile.json` 的 `cacheNamespace` 同步为
+`orzaudio-1.4.0-full-a107c62bbe34`，旧 WAV 缓存按预期失效。
+
 ## 剩余待办
 
 - [x] 上游具备 Android full 交叉编译 + 打包 + CI job（OrzAudioCore
@@ -213,6 +230,8 @@ cd clients/android && ./gradlew assembleDebug
 - [x] 上游 v1.3.1（修 adplug 在 Android 上没有 `/tmp`）已随 0.8.11 落地：两份 `liborzaudio.so`
       用 1.3.1 资产重建，`orz_build_info()` = `orzcore-1.3.1-m1`，设备端同一条
       `buildInfoMatchesLockedSdkVersion` 用例的期望值随 `decoder-profile.json` 一起走到 1.3.1
+- [x] 上游 v1.4.0 已发布：schema-v1 lock + Android full 资产；两份 `.so` 重建为
+      `orzaudio-1.4.0-full-a107c62bbe34`，`cacheNamespace` 同步，设备端断言改为直接对齐生成值
 - [x] Media3 桥：`OrzPlaybackPlayer`（`SimpleBasePlayer`）把 `PcmStream` 接进
       `PlaybackService`，通知栏/锁屏/耳机线控行为不变 ——
       见 [`backlog/android-pcm-streaming.md`](backlog/android-pcm-streaming.md)

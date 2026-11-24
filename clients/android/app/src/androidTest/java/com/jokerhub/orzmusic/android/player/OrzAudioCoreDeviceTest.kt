@@ -38,9 +38,10 @@ class OrzAudioCoreDeviceTest {
         // 期望版本取自生成的清单(单一事实来源),不在这里再写一遍版本号。
         val expected = DecoderManifest.SDK_VERSION.substringAfterLast(' ')
         assertTrue("build info 里没有 $expected:$info", info!!.contains("\"version\":\"$expected\""))
-        assertTrue(
-            "指纹应带 SDK 版本:${OrzAudioCore.cacheFingerprint}",
-            OrzAudioCore.cacheFingerprint.startsWith("orzcore-$expected-")
+        assertEquals(
+            "运行时指纹应与生成的 CACHE_NAMESPACE 一致",
+            DecoderManifest.CACHE_NAMESPACE,
+            OrzAudioCore.cacheFingerprint
         )
     }
 
